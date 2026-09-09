@@ -35,3 +35,13 @@ async function request(method,path, {body, token} = {}){
     export const getMyTrips = (token) => request('GET', '/trips/my-trips', {token});
 
     export const getMapData = (tripId, token) => request('GET', `/trips/${tripId}/map-data`, {token});
+
+    // Emergency contact
+    export const getEmergencyContact = (token) =>
+        request('GET', '/emergency-contact', { token });
+
+    export const upsertEmergencyContact = (name, phoneNumber, token) =>
+        request('PUT', '/emergency-contact', { body: { name, phoneNumber }, token });
+
+    export const deleteEmergencyContact = (token) =>
+        request('DELETE', '/emergency-contact', { token });

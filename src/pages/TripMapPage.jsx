@@ -3,7 +3,7 @@ import { getMyTrips, getMapData } from '../api/hoponApi.js';
 import { useSignalR } from '../hooks/useSignalR.js';
 import TripMap from '../components/TripMap.jsx';
 
-export default function TripMapPage({ token, onLogout }) {
+export default function TripMapPage({ token, onLogout, onNavigate }) {
   const [mapData, setMapData]       = useState(null);
   const [busPosition, setBusPosition] = useState(null);
   const [tripStatus, setTripStatus] = useState('');
@@ -151,6 +151,19 @@ export default function TripMapPage({ token, onLogout }) {
           >
             🌙
           </button>
+
+            <button
+                  onClick={() => onNavigate('emergency-contact')}
+                  title="Emergency contact"
+                  style={{
+                      background: 'none',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                      padding: '0.3rem 0.5rem',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                  }}>🆘
+            </button>
 
           <button
             onClick={onLogout}
