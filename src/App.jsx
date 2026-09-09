@@ -1,6 +1,8 @@
 import { useState } from "react"
 import LoginPage from './pages/LoginPage.jsx'
 import TripMapPage from "./pages/TripMapPage.jsx"
+import './index.css'
+import 'leaflet/dist/leaflet.css'
 
 function App() {
 
