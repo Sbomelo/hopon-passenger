@@ -162,7 +162,9 @@ export default function TripMapPage({ token, onLogout, onNavigate }) {
                       padding: '0.3rem 0.5rem',
                       cursor: 'pointer',
                       fontSize: '0.9rem'
-                  }}>🆘
+                  }}
+                  >
+                    🆘 Emergency Contact
             </button>
 
           <button
