@@ -139,7 +139,7 @@ export default function EmergencyContactPage({ token, onBack }) {
                     fontSize: '0.875rem',
                     lineHeight: 1.6
                 }}>
-                    <strong style={{ color: 'var(--color-interactive)' }}>🆘 How this works</strong>
+                    <strong style={{ color: 'var(--color-interactive)' }}>How this works</strong>
                     <p style={{ marginTop: '0.4rem', opacity: 0.8 }}>
                         Save a trusted person's number below. When your bus arrives at your stop,
                         they'll receive a notification so they know you've arrived safely.
