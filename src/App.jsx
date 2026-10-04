@@ -4,7 +4,6 @@ import TripMapPage from "./pages/TripMapPage.jsx"
 import DashboardPage        from './pages/DashboardPage.jsx';
 import EmergencyContactPage from './pages/EmergencyContactPage.jsx';
 import './index.css'
-import 'leaflet/dist/leaflet.css'
 
 function App() {
 

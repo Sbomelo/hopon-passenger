@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getMyTrips, getMapData } from '../api/hoponApi.js';
 import { useSignalR } from '../hooks/useSignalR.js';
 import TripMap from '../components/TripMap.jsx';
+import { MAP_STYLES, DEFAULT_LIGHT_STYLE } from '../components/mapStyles.js';
 
 export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripIdProp }) {
     const [mapData,      setMapData]      = useState(null);
@@ -10,13 +11,27 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
     const [loading,      setLoading]      = useState(true);
     const [error,        setError]        = useState('');
 
+    const [styleKey, setStyleKey] = useState(() =>
+        localStorage.getItem('hopon-theme') === 'dark' ? 'dark' : DEFAULT_LIGHT_STYLE
+    );
+    const isDark = MAP_STYLES[styleKey].dark;
+
+    useEffect(() => {
+        const theme = isDark ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('hopon-theme', theme);
+    }, [isDark]);
+
+    function toggleTheme() {
+        setStyleKey(isDark ? DEFAULT_LIGHT_STYLE : 'dark');
+    }
+
     useEffect(() => {
         async function load() {
             try {
                 let resolvedTripId = tripIdProp;
 
                 if (!resolvedTripId) {
-                    
                     const { liveTrips } = await getMyTrips(token);
                     if (liveTrips.length === 0) {
                         setError('No active trips found for your ticket.');
@@ -40,7 +55,7 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
         }
 
         load();
-    }, [token, tripIdProp]);  
+    }, [token, tripIdProp]);
 
     useSignalR(
         mapData?.tripId,
@@ -56,18 +71,6 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
             setTripStatus(statusData.status);
         }
     );
-
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme');
-        const next    = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        localStorage.setItem('hopon-theme', next);
-    }
-
-    useEffect(() => {
-        const saved = localStorage.getItem('hopon-theme');
-        if (saved) document.documentElement.setAttribute('data-theme', saved);
-    }, []);
 
     if (loading) {
         return (
@@ -97,8 +100,11 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
         tripStatus === 'Completed' ? 'var(--color-success)'     :
                                      'var(--color-interactive)';
 
+    const headerBtn = { background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '0.3rem 0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--color-text)' };
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+       
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
 
             <header style={{
                 background: 'var(--color-surface)',
@@ -110,28 +116,12 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                 flexShrink: 0,
                 gap: '0.5rem'
             }}>
-
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                    <button
-                        onClick={() => onNavigate('dashboard')}
-                        title="Back to my trips"
-                        style={{
-                            background: 'none',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: '8px',
-                            padding: '0.3rem 0.55rem',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            color: 'var(--color-text)',
-                            flexShrink: 0
-                        }}
-                    >
+                    <button onClick={() => onNavigate('dashboard')} title="Back to my trips" style={{ ...headerBtn, flexShrink: 0 }}>
                         Trips
                     </button>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, color: 'var(--color-interactive)', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {mapData?.routeName}
-                        </div>
+                    <div style={{ fontWeight: 700, color: 'var(--color-interactive)', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {mapData.routeName}
                     </div>
                 </div>
 
@@ -148,26 +138,15 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                         {tripStatus === 'InProgress' ? 'In Progress' : tripStatus}
                     </span>
 
-                    <button
-                        onClick={toggleTheme}
-                        title="Toggle theme"
-                        style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '0.3rem 0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-                    >
-                        🌙
+                    <button onClick={toggleTheme} title="Toggle theme" style={headerBtn}>
+                        {isDark ? '☀️' : '🌙'}
                     </button>
 
-                    <button
-                        onClick={() => onNavigate('emergency-contact')}
-                        title="Emergency contact"
-                        style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '0.3rem 0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}
-                    >
+                    <button onClick={() => onNavigate('emergency-contact')} title="Emergency contact" style={headerBtn}>
                         Emergency Contact
                     </button>
 
-                    <button
-                        onClick={onLogout}
-                        style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', color: 'var(--color-text)', padding: '0.3rem 0.65rem', cursor: 'pointer', fontSize: '0.8rem' }}
-                    >
+                    <button onClick={onLogout} style={{ ...headerBtn, padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}>
                         Log out
                     </button>
                 </div>
@@ -175,30 +154,14 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
 
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                 <TripMap
-                    stops={mapData?.stops ?? []}
+                    key={mapData.tripId}
+                    stops={mapData.stops}
                     busPosition={busPosition}
+                    routeName={mapData.routeName}
+                    status={tripStatus}
+                    styleKey={styleKey}
+                    onStyleChange={setStyleKey}
                 />
-            </div>
-
-            <div style={{
-                background: 'var(--color-surface)',
-                borderTop: '1px solid var(--color-border)',
-                padding: '0.45rem 1rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: '0.78rem',
-                opacity: 0.65,
-                flexShrink: 0
-            }}>
-                <span>
-                    {busPosition
-                        ? `Last GPS update: ${new Date(busPosition.recordedAt).toLocaleTimeString()}`
-                        : 'Waiting for bus location…'}
-                </span>
-                <span style={{ fontWeight: 600, color: 'var(--color-interactive)' }}>
-                    {(mapData?.stops ?? []).length} stops on route
-                </span>
             </div>
         </div>
     );
