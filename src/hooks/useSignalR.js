@@ -3,7 +3,12 @@ import * as signalR from '@microsoft/signalr';
 
 export function useSignalR (tripId, token, onLocationUpdate, onStatusUpdate){
 
-    const connectionRef = useRef(null);
+    const callbacksRef = useRef({ onLocationUpdate, onStatusUpdate });
+
+    // Use the latest callbacks without reconnecting on every parent render.
+    useEffect(() => {
+        callbacksRef.current = { onLocationUpdate, onStatusUpdate };
+    }, [onLocationUpdate, onStatusUpdate]);
 
     useEffect(()=>{
 
@@ -17,19 +22,16 @@ export function useSignalR (tripId, token, onLocationUpdate, onStatusUpdate){
                 .build();
 
         connection.on('ReceiveLocationUpdate', (data) =>{
-            onLocationUpdate(data);
+            callbacksRef.current.onLocationUpdate(data);
         });
 
         connection.on('ReceiveTripStatusUpdate', (data) =>{
-            if(onStatusUpdate)
-                onStatusUpdate(data);
+            callbacksRef.current.onStatusUpdate?.(data);
         });
 
         connection.start()
                   .then(()=> connection.invoke('JoinTrip', tripId))
                   .catch(err => console.log('signalR error:', err));
-
-        connectionRef.current = connection;
 
         return() =>{
             connection.invoke('LeaveTrip', tripId).catch(() =>{});

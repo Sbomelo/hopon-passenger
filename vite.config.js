@@ -7,11 +7,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:55036',
+        target: 'http://localhost:5101',
         changeOrigin: true
       },
       '/hubs': {
-        target: 'http://localhost:55036',
+        target: 'http://localhost:5101',
         changeOrigin: true,
         ws: true //web sockets for signalR
       }
