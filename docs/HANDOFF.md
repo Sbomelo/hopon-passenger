@@ -8,6 +8,14 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 3 — OTP hardening and phone normalisation (2026-11-16)**
+- [x] Pure South African mobile normalizer accepts common local/international formats; both OTP endpoints normalize before service calls. Emergency-contact model validation returns 400 for invalid phones; create/update stores E.164.
+- [x] Cryptographic six-digit codes, invalidation of older unused requests, active-user checks on request/verification/token issuance, and Development-only OTP logging.
+- [x] `Otp:ExposeCodeInResponse` defaults false and is true in Development configuration; hosted demos can explicitly opt in. Existing React code display works unchanged. Unknown-number errors stay generic; 200 for known vs 400 for unknown still permits enumeration (accepted demo limitation).
+- [x] Existing xUnit/SQLite project extended with reusable `TestDb`, normalizer cases, OTP service tests and HTTP validation/configuration tests. Task 2 OTP/map/SignalR fixture now uses a valid synthetic mobile number.
+- [x] Setup, assumptions, request examples and verification commands: backend `docs/OTP_HARDENING.md`. No migration added. SMS remains Task 6; Task 3b remains next.
+- [x] Verification: `dotnet build` (zero errors), `dotnet test --no-build` (81 passed, including 33 normalizer cases), frontend lint/build and local SQL Server migration check passed. Live local-format request → international-format verification → authenticated trips passed. Existing DriverController nullable and Vite chunk-size warnings remain; full local live-map rendering still depends on active demo trip data.
+
 **Task 2 — Token separation (2026-11-16)**
 - [x] Passenger JWTs carry the Passenger role; passenger controllers and TripHub require it. Driver JWTs retain Driver and now carry the correct username claim.
 - [x] Explicit signing-key validation, one-minute clock skew and role claim mapping; query tokens remain restricted to `/hubs`.
@@ -15,7 +23,7 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 - [x] Three-identity documentation and deployment notice in `docs/SECURITY.md`; request examples in backend `Hopon.Api.http`. Passengers must log in again because old tokens have no role. No migration added.
 - [x] Verification: `dotnet build` (zero errors), 24 backend tests, frontend auth-failure test, lint and build passed. Coverage includes overlapping IDs, role-less tokens, signature/expiry validation and OTP → map-data → SignalR JoinTrip. Browser checks confirm authenticated 401/403 clears storage and returns to login.
 - Local SQL Server OTP login, passenger trips, passenger-to-driver rejection (403) and hub negotiation (200) passed. Active-trip map-data access and SignalR joining passed with isolated test data; full local live-map rendering remains unverified because the existing passenger has zero live trips and one past trip. No demo records were changed. Broader testing remains Task 13.
-- Task 3 remains untouched.
+- Task 3 was subsequently completed below in the ordered task list.
 
 **Task 1 — Staff authentication (2026-11-16)**
 - [x] Separate StaffCookie authentication and AdminOnly/DriverOnly Razor policies; existing API JWT behavior remains unchanged. Login, POST logout, access denied and role-aware headers are implemented.
@@ -35,7 +43,7 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 
 **Backend — built**
 - [x] EF Core model and five migrations: Users, EmergencyContacts, Drivers (username + BCrypt hash), Buses, Stops, BusRoutes, RouteStops, Trips, TripStops, Tickets, LocationUpdates, BoardingLogs, NotificationLogs, OtpRequests. `Data/HoponDbContext.cs` and migrations `20260725213426_SeedUsers` / `20260804130147_SeededANewDriver` seed three users and one driver (`driver1`, id 2).
-- [x] OTP API (`POST /api/auth/otp/request`, `/api/auth/otp/verify`): BCrypt codes, 10-minute expiry, three requests per 10 minutes, five verification attempts, existing user required, passenger JWT via `IJwtTokenService`. SMS delivery is not implemented.
+- [x] OTP API (`POST /api/auth/otp/request`, `/api/auth/otp/verify`): normalized SA mobile numbers, cryptographically generated BCrypt codes, 10-minute expiry, three requests per 10 minutes, five verification attempts, active existing user required, older unused OTP invalidation, passenger JWT via `IJwtTokenService`. Code response exposure is opt-in; OTP logging is Development-only. SMS delivery is not implemented.
 - [x] Trip access service and `[RequireTripAccess]` filter; missing active ticket returns 404. Passenger API: access-check, my-trips (live/past), boarding-status, board, alight, history, map-data.
 - [x] Notifications API (`GET /api/notifications/my`); only driver-delay in-app notifications are generated. No reminder scheduler or SMS sender.
 - [x] Emergency-contact CRUD (`/api/emergency-contact`); no arrival-alert delivery.
@@ -46,7 +54,7 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 - [x] Driver Razor `/Driver/Trip`: start, delay/resume, complete, stop arrive/depart, GPS from browser geolocation; uses the authenticated driver id and the DriverOnly cookie policy (Task 1).
 
 **Passenger — built and wired**
-- [x] `src/pages/LoginPage.jsx`: OTP request and Development code display; code verification submits with Enter, but there is no visible Verify button.
+- [x] `src/pages/LoginPage.jsx`: OTP request and configured demo code display (`Otp:ExposeCodeInResponse`); code verification submits with Enter, but there is no visible Verify button.
 - [x] `DashboardPage.jsx`: live/past trip cards and active-trip map navigation. Past-trip cards are summaries, not a history detail page.
 - [x] `TripMapPage.jsx` + `src/components/TripMap.jsx`: MapLibre GL JS + OpenFreeMap, OSRM road route with straight-line fallback, location/status SignalR updates, follow-bus, basemap switcher and themes.
 - [x] `EmergencyContactPage.jsx`: contact read/save/delete only. Text promising arrival notifications is ahead of implementation.
@@ -84,8 +92,8 @@ Fix these as part of the tasks below (each is referenced there).
 
 1. Resolved in Task 1: Admin/Driver Razor folders require the respective staff cookie role; the driver id comes from the authenticated claim.
 2. Resolved in Task 2: passenger endpoints and TripHub require the Passenger role; driver APIs require Driver, preventing overlapping IDs from crossing identities.
-3. **`OtpService` logs the plain OTP at Information level in every environment**, and uses `Random.Shared` (not cryptographically secure). Previous unused OTPs are not invalidated when a new one is requested.
-4. **No phone-number normalisation** (`078…` vs `+2778…` vs spaces will all fail to match the unique `Users.PhoneNumber`).
+3. Resolved in Task 3: cryptographic OTP generation, older unused request invalidation, active-user checks and Development-only logging. Response code exposure is independently opt-in for demos.
+4. Resolved in Task 3: shared SA mobile normalisation for both OTP endpoints and emergency-contact create/update; invalid numbers return 400.
 5. **`Ticket` has no passenger stop.** The notification rules ("X before *your* stop", "notify emergency contact when you arrive") are impossible without it. See Task 4.
 6. **Admin status changes bypass the domain flow.** `UpdateTripStatusAsync` (Mark delayed / completed / cancel) doesn't set Actual times, doesn't notify passengers, and doesn't broadcast over SignalR.
 7. Resolved in Task 1: stop arrival/departure queries require the authorized trip id.
@@ -126,7 +134,7 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - Add a `Passenger` role claim to passenger JWTs; use `[Authorize(Roles="Passenger")]` on passenger controllers and the hub. Driver JWTs must not work on passenger endpoints and vice versa. Use different claim names or a `typ`/role check so ids can't collide.
 - *Done when:* a driver JWT gets 403 on `/api/trips/my-trips` and `/hubs/trip`; a passenger JWT gets 403 on `/api/driver/*`.
 
-**Task 3: OTP hardening + phone normalisation**
+**Task 3: OTP hardening + phone normalisation — complete**
 - Normalise to E.164 (+27…) on request and verify (accept `078…`, `+27 78…`, `27…`). Validate format.
 - Use `RandomNumberGenerator` for codes. Invalidate older unused OTPs on a new request. Never log OTPs outside Development. Return a generic message for unknown numbers (already done — keep it).
 - *Done when:* the same user can log in with any common format of their number; OTP never appears in logs in Production.
