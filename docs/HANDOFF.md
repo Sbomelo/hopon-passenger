@@ -8,6 +8,22 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 2 — Token separation (2026-11-16)**
+- [x] Passenger JWTs carry the Passenger role; passenger controllers and TripHub require it. Driver JWTs retain Driver and now carry the correct username claim.
+- [x] Explicit signing-key validation, one-minute clock skew and role claim mapping; query tokens remain restricted to `/hubs`.
+- [x] Passenger UI returns to OTP login after authenticated API 401/403 responses, using the existing logout handler. Anonymous OTP errors remain visible.
+- [x] Three-identity documentation and deployment notice in `docs/SECURITY.md`; request examples in backend `Hopon.Api.http`. Passengers must log in again because old tokens have no role. No migration added.
+- [x] Verification: `dotnet build` (zero errors), 24 backend tests, frontend auth-failure test, lint and build passed. Coverage includes overlapping IDs, role-less tokens, signature/expiry validation and OTP → map-data → SignalR JoinTrip. Browser checks confirm authenticated 401/403 clears storage and returns to login.
+- Local SQL Server OTP login, passenger trips, passenger-to-driver rejection (403) and hub negotiation (200) passed. Active-trip map-data access and SignalR joining passed with isolated test data; full local live-map rendering remains unverified because the existing passenger has zero live trips and one past trip. No demo records were changed. Broader testing remains Task 13.
+- Task 3 remains untouched.
+
+**Task 1 — Staff authentication (2026-11-16)**
+- [x] Separate StaffCookie authentication and AdminOnly/DriverOnly Razor policies; existing API JWT behavior remains unchanged. Login, POST logout, access denied and role-aware headers are implemented.
+- [x] AdminUsers table and AddAdminUsers migration; configuration-based first-admin bootstrap, generated Development fallback, warning/skip outside Development when credentials are missing.
+- [x] Admin driver list, creation, deactivate/reactivate and password reset. Deactivated accounts lose cookie access on their next request. Password reset affects future logins, without revoking existing cookies/JWTs.
+- [x] Driver page uses the authenticated driver id; service stop mutations require the authorized trip id.
+- [x] Focused SQLite/WebApplicationFactory staff security and bootstrap tests. Run `dotnet test`; setup and manual acceptance checks are in `docs/STAFF_AUTH.md`.
+
 **Task 0 verification**
 - [x] `dotnet build`: succeeds, zero errors. Existing CS8604 nullable warning in `Controllers/DriverController.cs:68` remains; no backend compile fix was needed.
 - [x] `dotnet ef database update -- --environment Development`: succeeds against local SQL Server; all five migrations already applied. No migration added or edited.
@@ -27,7 +43,7 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 - [x] SignalR `/hubs/trip`, JWT query-string authentication, trip-group access checks; broadcasts `ReceiveLocationUpdate`, `ReceiveTripStatusUpdate`, `ReceiveStopUpdate`. Passenger hook subscribes to location/status only.
 - [x] Schedule-offset ETA in `Models/EtaCalculator.cs` (known timezone defect remains in section B).
 - [x] Admin Razor trips list/filter, create, edit, details, cancel, mark delayed/completed. Ticket-issuing service implements seat/capacity/duplicate checks and `HOP-XXXXXX` references; its UI wiring defect is below.
-- [x] Driver Razor `/Driver/Trip`: start, delay/resume, complete, stop arrive/depart, GPS from browser geolocation; still hardcodes driver id 2 and lacks authentication.
+- [x] Driver Razor `/Driver/Trip`: start, delay/resume, complete, stop arrive/depart, GPS from browser geolocation; uses the authenticated driver id and the DriverOnly cookie policy (Task 1).
 
 **Passenger — built and wired**
 - [x] `src/pages/LoginPage.jsx`: OTP request and Development code display; code verification submits with Enter, but there is no visible Verify button.
@@ -66,20 +82,20 @@ No current committed JWT signing key, password-bearing connection string or Twil
 
 Fix these as part of the tasks below (each is referenced there).
 
-1. **Admin and Driver Razor Pages have no authentication at all**, and `Pages/Driver/Trip.cshtml.cs` hardcodes `DemoDriverId = 2`.
-2. **Driver and passenger JWTs share the same `NameIdentifier` claim, and passenger endpoints only use `[Authorize]`.** A driver token with id 2 is treated as passenger 2. Passenger tokens carry no role.
+1. Resolved in Task 1: Admin/Driver Razor folders require the respective staff cookie role; the driver id comes from the authenticated claim.
+2. Resolved in Task 2: passenger endpoints and TripHub require the Passenger role; driver APIs require Driver, preventing overlapping IDs from crossing identities.
 3. **`OtpService` logs the plain OTP at Information level in every environment**, and uses `Random.Shared` (not cryptographically secure). Previous unused OTPs are not invalidated when a new one is requested.
 4. **No phone-number normalisation** (`078…` vs `+2778…` vs spaces will all fail to match the unique `Users.PhoneNumber`).
 5. **`Ticket` has no passenger stop.** The notification rules ("X before *your* stop", "notify emergency contact when you arrive") are impossible without it. See Task 4.
 6. **Admin status changes bypass the domain flow.** `UpdateTripStatusAsync` (Mark delayed / completed / cancel) doesn't set Actual times, doesn't notify passengers, and doesn't broadcast over SignalR.
-7. `MarkStopArrivedAsync` / `MarkStopDepartedAsync` don't verify the stop belongs to the driver's trip.
-8. `IDriverTripService.RecordLocationAsync(trip, longitude, latitude)` has lat/lng swapped in the **interface** parameter names vs the implementation (callers currently pass lat, lng matching the implementation). Make them consistent — this bug class has bitten before.
-9. `HasData` for Users uses `DateTime.UtcNow`, which generated a churn migration (`SeededANewDriver` re-updated user dates). Use fixed dates.
+7. Resolved in Task 1: stop arrival/departure queries require the authorized trip id.
+8. Resolved inline in Task 1: RecordLocationAsync interface parameter names now match the implementation (latitude, longitude); behavior is unchanged.
+9. Resolved inline in Task 1: user seed dates match the existing snapshot, preventing migration churn.
 10. CORS allows only `http://localhost:5173`; JWT config and connection string location must be moved to secrets/env for deployment. `IJwtTokenService` is registered twice in `Program.cs`.
 11. Every GPS fix is written to `LocationUpdates` forever, and each driver POST triggers a DB write + broadcast. Needs a throttle and retention (Task 11).
 12. Typos in DTO property names (`MyTripDto.ActualDepature`, `DriverTripDto.BusRegistraton`) — rename only together with frontend usages.
 13. Resolved in Task 0: removed unused Leaflet/add dependencies; README now describes MapLibre GL JS + OpenFreeMap.
-14. No automated tests exist.
+14. Task 1 adds staff authentication, driver ownership and bootstrap tests. Broader coverage remains Task 13.
 15. Open edge case: `[RequireTripAccess]` requires an **active** ticket, so a voided/deactivated ticket blocks trip history. Decide: history should be allowed for any ticket the user owns (inactive included), tracking only for active tickets + active trip status.
 
 16. **Time zone inconsistency.** Admin forms (`datetime-local`) save South African local time into `ScheduledDeparture/Arrival` (Kind Unspecified), while the driver flow stamps `Actual*` with `DateTime.UtcNow`. `EtaCalculator` subtracts one from the other, so every delay/ETA is off by 2 hours. Dashboard DTO dates carry no `Z`; only `TripMapService` forces UTC (for location fixes).
@@ -100,13 +116,13 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - *Done when:* clean build, app runs, login → dashboard → map works locally with seeded data, and section A is accurate.
 
 ### Phase 1 — Security (before any deployment)
-**Task 1: Admin + Driver authentication (Razor Pages)**
+**Task 1: Admin + Driver authentication (Razor Pages) — complete**
 - Cookie authentication for Razor Pages with login/logout pages. Driver login uses existing `IDriverAuthService`. Add an `Admin` account (new `AdminUser` table or a role on a separate table — keep simple; BCrypt hash; seed via configuration, not hardcoded in source).
 - `[Authorize(Roles="Admin")]` on `/Admin/*`, `[Authorize(Roles="Driver")]` on `/Driver/*`. Remove `DemoDriverId`; use the logged-in driver's id. A driver may only act on their own trip (enforce in services, see defect 7).
 - Admin can create/deactivate driver accounts (username + initial password).
 - *Done when:* unauthenticated requests to `/Admin/*` and `/Driver/*` redirect to login; driver A cannot act on driver B's trip.
 
-**Task 2: Token separation**
+**Task 2: Token separation — complete**
 - Add a `Passenger` role claim to passenger JWTs; use `[Authorize(Roles="Passenger")]` on passenger controllers and the hub. Driver JWTs must not work on passenger endpoints and vice versa. Use different claim names or a `typ`/role check so ids can't collide.
 - *Done when:* a driver JWT gets 403 on `/api/trips/my-trips` and `/hubs/trip`; a passenger JWT gets 403 on `/api/driver/*`.
 
