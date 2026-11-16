@@ -1,4 +1,5 @@
 const BASE = '/api';
+export const AUTH_FAILURE_EVENT = 'hopon:auth-failure';
 
 async function request(method,path, {body, token} = {}){
 
@@ -15,6 +16,10 @@ async function request(method,path, {body, token} = {}){
         headers,
         body: body? JSON.stringify(body) : undefined
     });
+
+    if (token && (res.status === 401 || res.status === 403)) {
+        window.dispatchEvent(new CustomEvent(AUTH_FAILURE_EVENT, { detail: { token } }));
+    }
 
     const data = await res.json().catch(() => null);
 

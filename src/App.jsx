@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { AUTH_FAILURE_EVENT } from './api/hoponApi.js'
 import LoginPage from './pages/LoginPage.jsx'
 import TripMapPage from "./pages/TripMapPage.jsx"
 import DashboardPage        from './pages/DashboardPage.jsx';
@@ -30,6 +31,18 @@ function App() {
         setSelectedTripId(tripId);
         setCurrentPage('map');
     }
+
+ useEffect(() => {
+  function handleAuthFailure(event) {
+   // Ignore a late response from a session that has already been replaced.
+   if (event.detail.token === localStorage.getItem('hopon_token')) {
+    handleLogout();
+   }
+  }
+
+  window.addEventListener(AUTH_FAILURE_EVENT, handleAuthFailure);
+  return () => window.removeEventListener(AUTH_FAILURE_EVENT, handleAuthFailure);
+ }, []);
 
 if(!token){
   return <LoginPage onLogin={handleLogin} />
