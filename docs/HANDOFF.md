@@ -8,12 +8,19 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 3b — Configuration, secrets and startup safety (2026-11-16)**
+- [x] Strongly typed JWT/CORS/OTP options use ValidateOnStart; validation runs before database bootstrap. Missing/short JWT keys produce readable errors. JWT issuance and bearer validation share typed settings; duplicate token-service registration removed.
+- [x] CORS origins come from configuration; localhost:5173 is a Development-only default. Production has no allowed origins by default and OTP exposure is disabled. All committed settings are non-secret defaults.
+- [x] Forwarded For/Proto headers precede Production HTTPS redirection/HSTS; Swagger remains Development-only. Default proxy trust retained; Azure managed-proxy setup and its trust assumptions are documented.
+- [x] Ran user-secrets init (already initialized; existing secrets preserved). Backend README Local setup and .env.example document secrets, hosting variables, validation and CORS checks. Historical JWT rotation remains owner action; no Git history rewritten and no migration added.
+- [x] Verification: backend build (zero errors), 92 tests, frontend lint/build and local migration check passed. Real Production startup with an empty JWT key failed clearly before database access; Development preflight returned 204 with the configured origin, and SQL Server OTP login/authenticated trips worked with existing user-secrets. Existing DriverController nullable and Vite chunk warnings remain. Azure configuration is documented and middleware-tested locally; no Azure deployment performed.
+
 **Task 3 — OTP hardening and phone normalisation (2026-11-16)**
 - [x] Pure South African mobile normalizer accepts common local/international formats; both OTP endpoints normalize before service calls. Emergency-contact model validation returns 400 for invalid phones; create/update stores E.164.
 - [x] Cryptographic six-digit codes, invalidation of older unused requests, active-user checks on request/verification/token issuance, and Development-only OTP logging.
 - [x] `Otp:ExposeCodeInResponse` defaults false and is true in Development configuration; hosted demos can explicitly opt in. Existing React code display works unchanged. Unknown-number errors stay generic; 200 for known vs 400 for unknown still permits enumeration (accepted demo limitation).
 - [x] Existing xUnit/SQLite project extended with reusable `TestDb`, normalizer cases, OTP service tests and HTTP validation/configuration tests. Task 2 OTP/map/SignalR fixture now uses a valid synthetic mobile number.
-- [x] Setup, assumptions, request examples and verification commands: backend `docs/OTP_HARDENING.md`. No migration added. SMS remains Task 6; Task 3b remains next.
+- [x] Setup, assumptions, request examples and verification commands: backend `docs/OTP_HARDENING.md`. No migration added. SMS remains Task 6; Task 3b was subsequently completed.
 - [x] Verification: `dotnet build` (zero errors), `dotnet test --no-build` (81 passed, including 33 normalizer cases), frontend lint/build and local SQL Server migration check passed. Live local-format request → international-format verification → authenticated trips passed. Existing DriverController nullable and Vite chunk-size warnings remain; full local live-map rendering still depends on active demo trip data.
 
 **Task 2 — Token separation (2026-11-16)**
@@ -82,7 +89,7 @@ Only Users and Drivers have `HasData` / migration inserts. Stops, BusRoutes, Bus
 
 **Secret scan**
 
-No current committed JWT signing key, password-bearing connection string or Twilio credential was found. Historical `appsettings.json` in backend commit `cf11f906caf8c63f9baa61f4014dc2bce8138689` contains `Jwt:Key` and a Windows-auth connection string (no SQL password); it was removed later, but remains in history. **Owner must rotate any deployment/local key derived from that committed key.** No history was rewritten. Seeded phone numbers and the demo driver password hash remain in DbContext/migrations (section B.18); reset the demo password if reused and sanitise before public release. Full configuration/security work stays in Task 3b.
+No current committed JWT signing key, password-bearing connection string or Twilio credential was found. Historical `appsettings.json` in backend commit `cf11f906caf8c63f9baa61f4014dc2bce8138689` contains `Jwt:Key` and a Windows-auth connection string (no SQL password); it was removed later, but remains in history. **Owner must rotate any deployment/local key derived from that committed key.** No history was rewritten. Seeded phone numbers and the demo driver password hash remain in DbContext/migrations (section B.18); reset the demo password if reused and sanitise before public release. Task 3b completed configuration/startup hardening; credential rotation remains owner action.
 
 ---
 
@@ -99,7 +106,7 @@ Fix these as part of the tasks below (each is referenced there).
 7. Resolved in Task 1: stop arrival/departure queries require the authorized trip id.
 8. Resolved inline in Task 1: RecordLocationAsync interface parameter names now match the implementation (latitude, longitude); behavior is unchanged.
 9. Resolved inline in Task 1: user seed dates match the existing snapshot, preventing migration churn.
-10. CORS allows only `http://localhost:5173`; JWT config and connection string location must be moved to secrets/env for deployment. `IJwtTokenService` is registered twice in `Program.cs`.
+10. Resolved in Task 3b: configured CORS allowlist, validated typed JWT/CORS/OTP options, secrets/env setup documentation, Production HTTPS/HSTS/proxy support, and one token-service registration. Historical credential rotation remains owner action.
 11. Every GPS fix is written to `LocationUpdates` forever, and each driver POST triggers a DB write + broadcast. Needs a throttle and retention (Task 11).
 12. Typos in DTO property names (`MyTripDto.ActualDepature`, `DriverTripDto.BusRegistraton`) — rename only together with frontend usages.
 13. Resolved in Task 0: removed unused Leaflet/add dependencies; README now describes MapLibre GL JS + OpenFreeMap.
@@ -139,7 +146,7 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - Use `RandomNumberGenerator` for codes. Invalidate older unused OTPs on a new request. Never log OTPs outside Development. Return a generic message for unknown numbers (already done — keep it).
 - *Done when:* the same user can log in with any common format of their number; OTP never appears in logs in Production.
 
-**Task 3b: Configuration and secrets**
+**Task 3b: Configuration and secrets — complete**
 - Move JWT key, connection string, Twilio keys to user-secrets / env vars; add `appsettings.Production.json` without secrets; CORS origins from config. Remove duplicate DI registration. Fail fast on startup if the JWT key is missing or shorter than 32 chars.
 
 ### Phase 2 — Missing product features
