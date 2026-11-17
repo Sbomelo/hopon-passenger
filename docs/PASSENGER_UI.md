@@ -57,3 +57,23 @@ Manual checks at 360px and desktop, both themes:
 Backend commands from `C:\dev\my-project\backend`: `dotnet build`, `dotnet test --no-build --filter FullyQualifiedName~PassengerUiTests`, `dotnet test --no-build`, `dotnet ef database update --no-build -- --environment Development`, `dotnet run --no-build --launch-profile http`. Four focused backend cases cover ownership/roles, inactive tickets, destination isolation, legacy nulls and schedule/actual ETA. Build passed; execution is subject to the existing Application Control blocker.
 
 Inline verification fixes: unread data is tied to the current session token so switching passengers cannot briefly show another session's count. Node coverage verifies unread timestamp boundaries, relative-time boundaries/clock skew and midnight SAST rollover.
+
+## 9e — Login privacy notice
+
+An expandable section below Send one-time code explains phone use, ticket-holder-only location and the 90-day retention policy. It is visibly draft copy needing legal review. `privacy@hopon.example` is visibly an owner TODO placeholder, not a working contact. Since retention automation remains Task 11, the notice explicitly says automatic retention is not yet enabled in this demo; this task does not claim POPIA compliance.
+
+Inline fixes encountered in the touched login form: the OTP step had neither a visible Verify button nor rendered verification errors. It now has both, linked input labels and one-time-code autocomplete. No OTP secrets are persisted by this UI.
+
+Manual checks at 360px and desktop, both themes:
+
+1. Log out/reload with a saved theme. Under Send one-time code, expand How Hopon uses your number. Read all four topics and the draft/owner warnings; long address text wraps without horizontal overflow. Collapse it with keyboard and pointer.
+2. Request a code with a seeded passenger number; enter an incorrect six-digit code and click Verify code: show the error and re-enable the button. Use the correct configured demo code or received code and confirm login still opens a trip or the no-active-trip state. Enter also submits; Change number resets the code/error.
+
+## Final verification — 2026-11-17
+
+- Frontend `npm run lint`, `npm run build` and `node --test tests/*.test.mjs`: passed, all seven tests. Existing Vite MapLibre chunk-size warning remains.
+- Backend `dotnet build`: zero warnings/errors. All 382 backend tests passed, including the four new PassengerUiTests. Initial Application Control loader/startup failures recovered on normal retry without policy changes.
+- SQL Server `dotnet ef database update --no-build -- --environment Development`: already up to date. `dotnet ef migrations has-pending-model-changes --no-build -- --environment Development`: no pending changes.
+- Backend HTTP 5101 and existing Vite 5173 are running. Local Logging-mode request/verify OTP, my-trips, notifications, emergency-contact and owned past-trip history passed. Existing local passenger has zero live trips; local map/boarding interaction cannot be smoke-checked without changing demo data. Isolated integration tests cover their access and personalized map data.
+- Visual acceptance is **pending** at 360px/desktop in both themes: in-app browser tab creation timed out; native Edge inspection failed because its window is minimized and could not be restored by the available tool. No screenshot-based or interactive layout success is claimed. Complete the manual checks above before accepting the draft stack.
+- No migration, real SMS, automatic call, new library, security-policy change or demo trip/ticket edit. The privacy notice still needs legal review and an owner-supplied contact; automatic retention remains Task 11.

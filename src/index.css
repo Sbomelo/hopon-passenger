@@ -190,3 +190,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .sos-sheet__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .sos-sheet p { line-height: 1.5; margin: 12px 0; }
 .sos-link { display: block; padding: 14px; margin: 12px 0; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-alt); color: var(--color-interactive); overflow-wrap: anywhere; }
+.privacy-notice { margin-top: 16px; font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
+.privacy-notice summary { color: var(--color-interactive); cursor: pointer; padding: 6px 0; }
+.privacy-notice p { margin-top: 10px; }

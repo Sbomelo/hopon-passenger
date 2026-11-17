@@ -8,6 +8,16 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 9 — Passenger UI completion (2026-11-17; implementation complete, visual acceptance pending)**
+- [x] 9a: restore theme before React render through one theme helper; compact shared header with bell, theme and overflow controls. Map style/theme coupling is retained.
+- [x] 9b: newest-first notifications with type icons, relative/absolute SAST time, optional routes and loading/empty/error/retry states. Browser-local seen timestamp drives unread polling every 30 seconds on dashboard/map with cleanup.
+- [x] 9c: presentational boarding/alighting panel, persisted status/times, busy/error/retry handling and plain-string API errors. A scrolling bottom stack keeps route/follow controls separate from boarding.
+- [x] 9d: past-card history with ticket/seat, scheduled/actual and boarding times plus stop timeline; destination ETA on live cards/map; explicit SOS call-link sheet. History accepts any owned ticket, including inactive; my-trips lists inactive tickets under Past trips. Map destination comes from the access-checked ticket and existing schedule-offset ETA; tracking gates unchanged. Stop/status updates refresh map data and reconnect rejoins the authorized group.
+- [x] 9e: expandable draft login privacy notice, visible owner contact placeholder and truthful retention status (automation remains Task 11). Inline login fixes add a visible Verify button, verification errors and associated labels.
+- [x] Verification: backend build zero warnings/errors; all 382 backend tests (four new PassengerUiTests), frontend lint/build and seven Node tests passed. SQL Server already up to date; no pending model changes or migration. Initial Application Control failures recovered on normal retry without policy changes. Backend HTTP 5101 and Vite 5173 run. Local Logging-mode OTP login, trips/feed/contact and owned past-history HTTP checks passed; no real SMS, calls or demo trip/ticket edits.
+- [ ] Visual acceptance: 360px/desktop, both themes and live-map interaction remain unverified. In-app browser creation timed out; native Edge targeting failed on its minimized window. Local passenger has no live ticket; isolated tests cover map/boarding access and ticket-specific ETA. Follow `docs/PASSENGER_UI.md` before accepting the draft PR stack.
+- Delivery/assumptions: five ordered frontend commits/stacked PRs plus one companion backend commit/PR. SOS only presents saved-contact/10111 tel links (no auto-dial/message). Read timestamp is browser-local; per-user SignalR groups are a future option. Privacy copy needs legal review and the owner must replace `privacy@hopon.example`. Theme tokens unchanged.
+
 **Task 8 — One lifecycle path for trip status changes (2026-11-17; implementation complete, runtime verification pending)**
 - [x] Renamed driver lifecycle service/interface with `git mv` to `TripLifecycleService` / `ITripLifecycleService`; updated DI, driver API/Razor callers and existing tests. `TripStatusRules.CanTransition` enforces the eight requested transitions; terminal/self transitions are rejected before side effects.
 - [x] Admin Edit loads a tracked Trip by id and uses the lifecycle service for delay (optional reason), resume and completion. Details cancellation has an optional reason and confirmation flow. Missing IDs return 404; lifecycle errors are shown through TempData. Removed the admin status setter; only lifecycle code mutates existing trip statuses.
@@ -113,32 +123,32 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 - [x] Notifications API (`GET /api/notifications/my`), time-based passenger destination reminders, driver destination-arrival alerts and existing delay notifications. Task 6 adds optional SMS through the shared notification service; passenger feed UI remains Task 9.
 - [x] Emergency-contact CRUD (`/api/emergency-contact`); no arrival-alert delivery.
 - [x] Driver API (`/api/driver/...`, Driver role): my-trip, start, delay, complete, location; login at `/api/driver/auth/login`.
-- [x] SignalR `/hubs/trip`, JWT query-string authentication, trip-group access checks; broadcasts `ReceiveLocationUpdate`, `ReceiveTripStatusUpdate`, `ReceiveStopUpdate`. Passenger hook subscribes to location/status only.
+- [x] SignalR `/hubs/trip`, JWT query-string authentication, trip-group access checks; broadcasts `ReceiveLocationUpdate`, `ReceiveTripStatusUpdate`, `ReceiveStopUpdate`. Passenger hook subscribes to location/status/stop events and rejoins the authorized group after reconnect (Task 9).
 - [x] Schedule-offset ETA in `Models/EtaCalculator.cs`; Task 4b makes new admin schedules UTC to match driver actual times. Legacy SAST schedules require the documented one-off correction.
 - [x] Admin Razor trips list/filter, create, edit, details, cancel, mark delayed/completed. Ticket issuance includes seat/capacity/duplicate checks, `HOP-XXXXXX` references and validated passenger stops; Task 4 fixes the form's GET loading.
 - [x] Driver Razor `/Driver/Trip`: start, delay/resume, complete, stop arrive/depart, GPS from browser geolocation; uses the authenticated driver id and the DriverOnly cookie policy (Task 1).
 
 **Passenger — built and wired**
-- [x] `src/pages/LoginPage.jsx`: OTP request and configured demo code display (`Otp:ExposeCodeInResponse`); code verification submits with Enter, but there is no visible Verify button.
-- [x] `DashboardPage.jsx`: live/past trip cards and active-trip map navigation. Past-trip cards are summaries, not a history detail page.
+- [x] `src/pages/LoginPage.jsx`: OTP request and configured demo code display (`Otp:ExposeCodeInResponse`); code verification supports Enter and a visible Verify button with rendered errors (Task 9); expandable draft privacy notice is present.
+- [x] `DashboardPage.jsx`: live/past trip cards and active-trip map navigation. Past-trip cards now open the ticket-owned history detail page (Task 9).
 - [x] `TripMapPage.jsx` + `src/components/TripMap.jsx`: MapLibre GL JS + OpenFreeMap, OSRM road route with straight-line fallback, location/status SignalR updates, follow-bus, basemap switcher and themes.
 - [x] `EmergencyContactPage.jsx`: contact read/save/delete; Task 7 now sends destination-arrival SMS and shows the result in the dashboard emergency feed.
-- [x] `App.jsx`: switches only `map`, `dashboard`, `emergency-contact`; login/logout reset navigation to `map`.
+- [x] `App.jsx`: owns `map`, `dashboard`, `emergency-contact`, `notifications`, `history` navigation and selected trip ID; login/logout reset navigation to `map`.
 
 **Exists but not wired**
 - Resolved in Task 4: Admin Issue Ticket now loads passengers and trip stops on the normal Details GET and after validation errors.
-- Boarding/alighting, history and the general notifications feed still need Task 9 UI. Task 7 exposes emergency arrival outcomes on the dashboard through the notification feed API.
+- Task 9 wires boarding/alighting, history, general notifications/unread, SOS and destination display. Task 7 emergency arrival outcomes remain on the dashboard. Visual acceptance of Task 9 remains pending as recorded above.
 
 **Missing — checked with file globs and repository text searches**
 
 | Requested item | Status / evidence | Follow-up |
 |---|---|---|
-| General NotificationsPage / unread count | Task 7 adds an emergency-only dashboard feed and API helper; the general feed and unread UI are still missing | Task 9 |
-| TripHistory detail page | **Missing**; dashboard past-trip cards do not call `/history` | Task 9 |
-| BoardingPanel / boarding confirmation UI | **Missing** from `src/components` and pages; no board/alight calls | Task 9 |
+| General NotificationsPage / unread count | Implemented in Task 9; visual acceptance pending | Task 9 |
+| TripHistory detail page | Implemented in Task 9, including inactive owned tickets | Task 9 |
+| BoardingPanel / boarding confirmation UI | Implemented in Task 9 with board/alight/status API calls | Task 9 |
 | `Pages/Admin/Simulator/Index.cshtml` and page model | **Missing**; broken `/Admin/Simulator/Index` link removed from `Pages/Shared/_Layout.cshtml` | Task 12 |
 | Admin Void ticket action | **Missing** from Razor handlers, forms and admin service; `Ticket.IsActive` exists but no void action | Task 10 |
-| SOS button | **Missing** throughout both source trees; Emergency Contact is CRUD, not SOS | Task 9 |
+| SOS button | Implemented in Task 9 as an explicit call-link sheet | Task 9 |
 | Seed SQL / reproducible trip demo | **Missing**: no `*.sql` files or demo seeder in either checkout | Task 12 |
 
 **Where operational data comes from**
@@ -169,7 +179,7 @@ Fix these as part of the tasks below (each is referenced there).
 12. Typos in DTO property names (`MyTripDto.ActualDepature`, `DriverTripDto.BusRegistraton`) — rename only together with frontend usages.
 13. Resolved in Task 0: removed unused Leaflet/add dependencies; README now describes MapLibre GL JS + OpenFreeMap.
 14. Task 1 adds staff authentication, driver ownership and bootstrap tests. Broader coverage remains Task 13.
-15. Open edge case: `[RequireTripAccess]` requires an **active** ticket, so a voided/deactivated ticket blocks trip history. Decide: history should be allowed for any ticket the user owns (inactive included), tracking only for active tickets + active trip status.
+15. Resolved in Task 9: history relies on service ticket ownership, including inactive tickets, while tracking access gates stay unchanged. Inactive tickets are listed under Past trips so history is reachable.
 
 16. Resolved for new data in Task 4b: admin SAST input converts to UTC, EF DateTimes read as UTC (API `Z`), and staff/passenger displays use SAST. Existing SAST schedule values are not automatically shifted; `docs/sql/shift-scheduled-times-to-utc.sql` is a manual, one-off correction only for verified SAST-only schedule databases.
 17. Resolved in Task 4: `AdminTripService.CreateTripAsync` atomically saves TripStops generated from the route's stops. Legacy trips without stops are not backfilled.
@@ -237,7 +247,10 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - [ ] Run backend tests, EF checks and local startup after Windows Application Control permits the generated assemblies. PR remains draft pending these checks.
 - *Done when:* admin and driver produce identical side-effects for the same transition.
 
-**Task 9: Passenger UI completion**
+**Task 9: Passenger UI completion — implementation complete; visual acceptance pending**
+- [x] 9a theme/header; 9b notifications/unread; 9c boarding/alighting; 9d history/your stop/SOS and inactive-ticket backend fix; 9e draft privacy notice.
+- [x] Required builds/lint, 382 backend tests, seven Node tests, SQL EF checks and local OTP/past-history smoke passed.
+- [ ] Complete the 360px/desktop manual checks in both themes from `docs/PASSENGER_UI.md`; browser tooling could not verify them.
 - Pages (React, no router, per AGENTS.md): Notifications feed (+ unread count badge on dashboard header via a global SignalR listener or polling — keep simple), Boarding panel on the trip screen (Board / Left bus), Trip History detail (stops with scheduled vs actual times), SOS/emergency access, "Your stop" display, privacy notice on the login page.
 - Fix theme toggle so choice persists across all pages and reloads. Fix any header overflow on small phones (the header has 4 controls).
 - Use the existing `DashboardPage` conventions. Verify on a 360px-wide viewport.
