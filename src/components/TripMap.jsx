@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MAP_STYLES } from './mapStyles.js';
+import { formatTime } from '../utils/format.js';
 import './TripMap.css';
 
 const OPERATOR_LABEL = 'Intercape'; // no Operator in the data model yet, demo-only constant
@@ -402,7 +403,7 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
 
     const isLive = status === 'Scheduled' || status === 'InProgress' || status === 'Delayed';
     const lastUpdate = busPosition
-        ? new Date(busPosition.recordedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
+        ? formatTime(busPosition.recordedAt)
         : null;
 
     return (
