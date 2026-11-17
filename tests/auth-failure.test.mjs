@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
     AUTH_FAILURE_EVENT, getMyTrips, getMapData, getEmergencyContact,
-    upsertEmergencyContact, deleteEmergencyContact, verifyOtp,
+    upsertEmergencyContact, deleteEmergencyContact, verifyOtp, getNotifications,
 } from '../src/api/hoponApi.js';
 
 test('all authenticated API helpers signal logout for 401 and 403', async () => {
@@ -14,6 +14,7 @@ test('all authenticated API helpers signal logout for 401 and 403', async () => 
     try {
         const requests = [
             () => getMyTrips('session-token'),
+            () => getNotifications('session-token'),
             () => getMapData(1, 'session-token'),
             () => getEmergencyContact('session-token'),
             () => upsertEmergencyContact('Contact', '+27000000001', 'session-token'),

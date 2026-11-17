@@ -39,6 +39,8 @@ async function request(method,path, {body, token} = {}){
     //Trip Data
     export const getMyTrips = (token) => request('GET', '/trips/my-trips', {token});
 
+    export const getNotifications = (token) => request('GET', '/notifications/my', { token });
+
     export const getMapData = (tripId, token) => request('GET', `/trips/${tripId}/map-data`, {token});
 
     // Emergency contact

@@ -8,6 +8,39 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 7 — Emergency contact alert on arrival (2026-11-17)**
+- [x] Driver destination arrival sends the exact first-name/stop-name SMS through `INotificationService` / `ISmsSender` to the saved contact, who needs no Hopon account. Only active destination tickets qualify; missing contacts and legacy null destinations are skipped.
+- [x] Passenger-owned Emergency/Sms log names the contact without their number. Success says “We told Mom you arrived.” Failed sends/exceptions are Failed with null SentAt; disabled/excluded SMS remains Pending with “SMS disabled”. Logging is explicitly simulated and remains Pending rather than claiming real delivery.
+- [x] New migration `20261117124718_AddUniqueEmergencyAlerts` enforces one `(UserId, TripId, Type = Emergency)` across channels/statuses. Pending claims precede sending; repeated toggles, concurrent calls and completion cannot resend. One attempt total, no retries/backfill. Existing rows/migrations are preserved.
+- [x] Driver Completed flow checks the trip's highest-sequence stop for not-yet-alerted final-stop ticket holders, even without an Arrived event. It does not invent stop timestamps or alert missed intermediate destinations. Admin domain-flow consolidation remains Task 8.
+- [x] Passenger dashboard now includes a themed Emergency contact alerts feed, refreshed every 30 seconds, showing truthful Sent/Pending/Failed results. General notifications/unread UI remains Task 9. Added feed helper to authenticated-API logout coverage.
+- [x] Verification: backend build (zero errors), 321 backend tests including 14 emergency cases, frontend lint/build and four Node tests passed. Local SQL Server migration and pending-model check passed. Backend HTTP 5101 and Vite 5173 start successfully. Existing DriverController nullable and Vite chunk warnings remain on full compilation/build.
+- Verification limits: browser-control service timed out, so visual/360px dashboard checks remain unverified. Existing local passengers have no live trips; isolated HTTP tests cover OTP/map/SignalR and private feed access. No real SMS or paid provider calls were made.
+- Assumptions/limits: first whitespace-delimited name (fallback `Passenger` if blank); “Sent” means provider acceptance, not handset receipt. Disabled, simulated and failed claims suppress later attempts; a crash after claiming may leave Pending with unknown delivery. See `docs/EMERGENCY_ALERTS.md` for exact commands, messages, completion edge case and rollout duplicate preflight.
+
+**Task 6 — SMS abstraction and Twilio (2026-11-17)**
+- [x] `ISmsSender`/`SmsSendResult`, Logging default and official Twilio 8.2.0 sender. Twilio supports FromNumber or MessagingServiceSid (service takes precedence), a 10-second timeout, failure results and body-free error logs. Logging prints messages only in Development and redacts bodies elsewhere; SDK debug body logging is disabled.
+- [x] Typed SMS/Twilio/notification options validate provider, required Twilio credentials/sender and notification type names before database bootstrap. Notification SMS defaults off; its replacement type allowlist defaults to ThirtyMinutesBefore, TenMinutesBefore, Arrival, Delay and Emergency. OTP uses the selected provider independently of this switch.
+- [x] OTP sends the exact Hopon ten-minute code text. Failed delivery deletes the new request and restores older unused codes, returns the requested SMS error, exposes no code and consumes no rate-limit slot.
+- [x] `INotificationService.CreateAsync` unifies scheduler, driver delay and destination arrival channels. SMS claims a Pending log before sending and records Sent/SentAt or Failed/null SentAt. InApp delivery remains available. Failed SMS is not automatically retried; Sent means provider acceptance, not handset delivery. Emergency-contact delivery remains Task 7.
+- [x] New migration `20261117052431_AddNotificationChannelUniqueness` replaces the filtered reminder/arrival unique key with `(UserId, TripId, Type, Channel)`. Existing data/migrations are preserved; Delay/Emergency may repeat. Applied successfully to local SQL Server with `dotnet ef database update --no-build -- --environment Development`; no pending model changes.
+- [x] Recording-fake service/HTTP tests and in-memory SDK transport tests cover OTP rollback/rate-limit recovery, exact text/exposure, default/custom SMS filtering, failure status, channel uniqueness, scheduler/arrival/delay integration, startup validation, sender selection, redaction, timeout and cancellation. No test contacts Twilio.
+- [x] Verification: backend build (zero errors), all 307 tests, frontend lint/build and SQL migration passed. SQL Server Logging-mode OTP request/verify, authenticated my-trips and notification feed passed. Startup with missing Twilio credentials/sender or an invalid provider fails clearly before database access. Existing DriverController nullable and Vite chunk warnings remain.
+- Local limits: existing data has no live trips, so full local active-map rendering remains unverified; isolated HTTP tests cover OTP → map-data → SignalR. Windows Application Control intermittently blocked initial test/startup/EF attempts; a normal rebuild/retry restored execution without policy changes. No paid SMS was sent and no Twilio account/credentials were configured.
+- [ ] Owner acceptance: follow `docs/SMS.md` to configure a sender/Messaging Service, enable South Africa, verify trial recipients and confirm real OTP receipt on a handset. Configuration keys and exact commands are also in README and `.env.example`.
+- Assumptions/inline fixes: notification allowlist replaces defaults; no SMS backfill or automatic retries/outbox recovery (interruption may leave Pending). Guarded attempts are once per channel even when Failed. Failed OTP sends preserve the previous working code. Demo offset affects due decisions only; actual notification timestamps use injected UTC time. Fixed cascading startup validation errors for unknown SMS providers. Downgrade requires reconciling dual-channel rows before restoring Task 5's narrower index.
+
+**Task 5 — Destination notification scheduler (2026-11-17)**
+- [x] Pure threshold rules choose only the most urgent crossed 4h/2h/30min/10min reminder, suppress equal/less urgent repeats after catch-up or ETA changes, and skip past ETAs. Message helpers include the passenger stop and SAST ETA; the ten-minute reminder says to get ready to get off.
+- [x] Hosted scheduler uses a 30-second `PeriodicTimer`, injected `TimeProvider.System` and a new scope per tick. Read-only ticket/log queries are batched; only InProgress/Delayed trips, active tickets, Pending destinations belonging to that trip and passengers without Alighted logs qualify. Legacy null destinations are skipped. Per-ticket saves isolate failures; later ticks retry failed reminder inserts while still due.
+- [x] Driver stop arrival now generates guarded InApp Arrival notifications for active destination ticket holders after saving the stop. Repeated arrivals/writes do not duplicate logs. Existing repeatable Delay notifications remain unchanged. Emergency-contact/SMS delivery remains Tasks 7/6; feed UI remains Task 9.
+- [x] Migration `AddUniquePassengerNotifications` adds a filtered unique `(UserId, TripId, Type)` index for reminder/arrival types only, closing insert races while allowing repeated Delay logs. Applied successfully to local SQL Server with `dotnet ef database update --no-build -- --environment Development`. No existing migration edited or schedule data shifted.
+- [x] Optional `Demo:ClockOffsetMinutes` defaults to 0 and affects only the Development scheduler's notion of now. README documents fast-forwarding, restart/reset, eligibility, catch-up and the existing notification feed endpoint.
+- [x] Focused SQLite/FakeTimeProvider coverage includes all threshold boundaries and sent combinations, different passenger stops/ETAs, all eligibility exclusions, batch read counts, per-ticket failure recovery, filtered unique-key races, timer shutdown, Development-only offsets, arrival hooks, repeatable delays and private `/api/notifications/my` feed visibility.
+- [x] Verification: `dotnet build` (zero errors), `dotnet test --no-build` (281 passed, including 161 new notification cases), frontend `npm run lint`/`npm run build`, and local SQL Server migration passed. Existing DriverController nullable and Vite chunk warnings remain. The full-suite timer test now waits for save completion rather than polling a shared SQLite connection during its write.
+- Local runtime limit: direct `dotnet run --no-build --launch-profile http` is still blocked by Windows Application Control (the existing Task 4b environment issue). No policy was changed. SQL Server migration and isolated HTTP/timer tests work; a direct local login → map smoke check remains unverified for Task 5.
+- Assumptions: reminder/arrival uniqueness spans all channels/statuses for a user/trip/type, while Delay/Emergency logs may repeat. Catch-up satisfies older thresholds through the persisted urgent type without creating pretend Sent rows. Arrival recipients include active destination tickets even if already alighted, as required separately from the scheduler's alighting exclusion. Arrival generation runs in the driver arrival action, without a separate retry/outbox worker.
+
 **Task 4b — UTC storage and SAST display (2026-11-17)**
 - [x] `SaTime` converts admin SAST wall-clock input to UTC with a fixed +02:00 offset and no OS timezone IDs; UTC inputs are unchanged. EF conventions preserve writes and mark required/nullable DateTimes UTC on read, preserving ticks and nulls.
 - [x] Admin Create/Edit save UTC and Edit pre-fills SAST. Admin Index/Details, ticket destination times, and driver schedule/stop/GPS displays use SAST; GPS is labelled SAST. Driver timestamps continue to use UTC.
@@ -66,9 +99,9 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 
 **Backend — built**
 - [x] EF Core model and five migrations: Users, EmergencyContacts, Drivers (username + BCrypt hash), Buses, Stops, BusRoutes, RouteStops, Trips, TripStops, Tickets, LocationUpdates, BoardingLogs, NotificationLogs, OtpRequests. `Data/HoponDbContext.cs` and migrations `20260725213426_SeedUsers` / `20260804130147_SeededANewDriver` seed three users and one driver (`driver1`, id 2).
-- [x] OTP API (`POST /api/auth/otp/request`, `/api/auth/otp/verify`): normalized SA mobile numbers, cryptographically generated BCrypt codes, 10-minute expiry, three requests per 10 minutes, five verification attempts, active existing user required, older unused OTP invalidation, passenger JWT via `IJwtTokenService`. Code response exposure is opt-in; OTP logging is Development-only. SMS delivery is not implemented.
+- [x] OTP API (`POST /api/auth/otp/request`, `/api/auth/otp/verify`): normalized SA mobile numbers, cryptographically generated BCrypt codes, 10-minute expiry, three requests per 10 minutes, five verification attempts, active existing user required, older unused OTP invalidation, passenger JWT via `IJwtTokenService`. Code response exposure is opt-in; OTP logging is Development-only. Task 6 adds Logging/Twilio SMS delivery and failed-send rollback.
 - [x] Trip access service and `[RequireTripAccess]` filter; missing active ticket returns 404. Passenger API: access-check, my-trips (live/past), boarding-status, board, alight, history, map-data.
-- [x] Notifications API (`GET /api/notifications/my`); only driver-delay in-app notifications are generated. No reminder scheduler or SMS sender.
+- [x] Notifications API (`GET /api/notifications/my`), time-based passenger destination reminders, driver destination-arrival alerts and existing delay notifications. Task 6 adds optional SMS through the shared notification service; passenger feed UI remains Task 9.
 - [x] Emergency-contact CRUD (`/api/emergency-contact`); no arrival-alert delivery.
 - [x] Driver API (`/api/driver/...`, Driver role): my-trip, start, delay, complete, location; login at `/api/driver/auth/login`.
 - [x] SignalR `/hubs/trip`, JWT query-string authentication, trip-group access checks; broadcasts `ReceiveLocationUpdate`, `ReceiveTripStatusUpdate`, `ReceiveStopUpdate`. Passenger hook subscribes to location/status only.
@@ -80,18 +113,18 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 - [x] `src/pages/LoginPage.jsx`: OTP request and configured demo code display (`Otp:ExposeCodeInResponse`); code verification submits with Enter, but there is no visible Verify button.
 - [x] `DashboardPage.jsx`: live/past trip cards and active-trip map navigation. Past-trip cards are summaries, not a history detail page.
 - [x] `TripMapPage.jsx` + `src/components/TripMap.jsx`: MapLibre GL JS + OpenFreeMap, OSRM road route with straight-line fallback, location/status SignalR updates, follow-bus, basemap switcher and themes.
-- [x] `EmergencyContactPage.jsx`: contact read/save/delete only. Text promising arrival notifications is ahead of implementation.
+- [x] `EmergencyContactPage.jsx`: contact read/save/delete; Task 7 now sends destination-arrival SMS and shows the result in the dashboard emergency feed.
 - [x] `App.jsx`: switches only `map`, `dashboard`, `emergency-contact`; login/logout reset navigation to `map`.
 
 **Exists but not wired**
 - Resolved in Task 4: Admin Issue Ticket now loads passengers and trip stops on the normal Details GET and after validation errors.
-- Notifications, boarding/alighting and history APIs exist, but the passenger API helper and `App.jsx` do not expose their missing UI features below.
+- Boarding/alighting, history and the general notifications feed still need Task 9 UI. Task 7 exposes emergency arrival outcomes on the dashboard through the notification feed API.
 
 **Missing — checked with file globs and repository text searches**
 
 | Requested item | Status / evidence | Follow-up |
 |---|---|---|
-| NotificationsPage or equivalent feed | **Missing** from `src/pages`; no feed navigation or API helper | Task 9 |
+| General NotificationsPage / unread count | Task 7 adds an emergency-only dashboard feed and API helper; the general feed and unread UI are still missing | Task 9 |
 | TripHistory detail page | **Missing**; dashboard past-trip cards do not call `/history` | Task 9 |
 | BoardingPanel / boarding confirmation UI | **Missing** from `src/components` and pages; no board/alight calls | Task 9 |
 | `Pages/Admin/Simulator/Index.cshtml` and page model | **Missing**; broken `/Admin/Simulator/Index` link removed from `Pages/Shared/_Layout.cshtml` | Task 12 |
@@ -117,7 +150,7 @@ Fix these as part of the tasks below (each is referenced there).
 2. Resolved in Task 2: passenger endpoints and TripHub require the Passenger role; driver APIs require Driver, preventing overlapping IDs from crossing identities.
 3. Resolved in Task 3: cryptographic OTP generation, older unused request invalidation, active-user checks and Development-only logging. Response code exposure is independently opt-in for demos.
 4. Resolved in Task 3: shared SA mobile normalisation for both OTP endpoints and emergency-contact create/update; invalid numbers return 400.
-5. Resolved in Task 4: tickets have nullable origin/destination TripStop FKs, with destination required and ordered for new issuance. Existing tickets keep null stops; notification delivery remains future work.
+5. Resolved in Task 4: tickets have nullable origin/destination TripStop FKs, with destination required and ordered for new issuance. Task 5 generates reminders/arrival alerts for destination tickets; old null-stop tickets are skipped for these alerts.
 6. **Admin status changes bypass the domain flow.** `UpdateTripStatusAsync` (Mark delayed / completed / cancel) doesn't set Actual times, doesn't notify passengers, and doesn't broadcast over SignalR.
 7. Resolved in Task 1: stop arrival/departure queries require the authorized trip id.
 8. Resolved inline in Task 1: RecordLocationAsync interface parameter names now match the implementation (latitude, longitude); behavior is unchanged.
@@ -174,19 +207,21 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - [x] Add nullable origin/destination TripStop FKs with restricted delete, migration, validated admin selectors, and destination fields in history/my-trips/access/admin DTOs. React "Your stop" display is deferred to Task 9 as instructed.
 - *Done when:* every newly issued ticket has a destination stop; existing data still works.
 
-**Task 5: Notification scheduler (4h / 2h / 30min / 10min / arrival)**
-- A `BackgroundService` ticking every 30–60 s. For each active trip and each active ticket with a destination stop, compute the passenger's stop ETA = stop `ScheduledArrival` + trip departure delay (reuse the schedule-offset idea). When ETA − now crosses 4h / 2h / 30min / 10min, create a `NotificationLog` (types already exist) **exactly once** (guard with a unique check on UserId + TripId + Type). Arrival notification fires when the passenger's stop is marked Arrived.
+**Task 5: Notification scheduler (4h / 2h / 30min / 10min / arrival) — complete**
+- [x] A 30-second `BackgroundService` computes destination ETA through `CalculateStopEta`, applies catch-up rules and creates guarded InApp logs. Driver arrival creates destination Arrival logs; a filtered unique index enforces user/trip/type uniqueness. Fake-clock and feed tests verify generation and access.
 - Stop reminder: the 10-minute notification doubles as the "get ready to get off" reminder.
 - Delay notifications keep working as today.
 - Unit-test the threshold logic as a pure function.
 - *Done when:* with a seeded trip and a fast-forwarded clock (inject `TimeProvider`), each notification is created once and appears in `/api/notifications/my`.
 
-**Task 6: SMS abstraction + Twilio**
-- `ISmsSender` with `LoggingSmsSender` (default in Development) and `TwilioSmsSender` (configured via secrets). Use it for: OTP delivery in Production, Sms-channel notifications, and emergency contact alerts. Record in `NotificationLog` (Channel = Sms, Status Sent/Failed). Handle failures without crashing the request.
+**Task 6: SMS abstraction + Twilio — implementation complete; owner delivery check pending**
+- [x] `ISmsSender` with `LoggingSmsSender` (default) and `TwilioSmsSender` (configured via secrets). Use it for OTP and configured Sms-channel passenger notifications; emergency-contact alerts remain Task 7. Record in `NotificationLog` (Channel = Sms, Status Sent/Failed). Handle failures without crashing the request.
 - *Done when:* in Development nothing is sent but everything is logged; in Production OTP arrives by SMS.
+- [ ] Owner acceptance: configure Twilio using `docs/SMS.md` and confirm actual OTP receipt on a South African handset. No paid SMS was sent during implementation.
 
-**Task 7: Emergency contact alert on arrival**
-- When the driver marks the passenger's destination stop as Arrived: send an SMS to that passenger's emergency contact ("Thandi has arrived at Johannesburg Park Station"), log it. Only once per ticket.
+**Task 7: Emergency contact alert on arrival — complete**
+- [x] Exact privacy-limited SMS to saved contact on destination arrival; passenger-owned Emergency/Sms result log and dashboard feed. Unique user/trip/type claim prevents repeats; failed/disabled/simulated outcomes are truthful and are not retried.
+- [x] Driver completion fallback covers final-stop tickets without an arrival event; voided tickets are ignored. Migration, focused tests and verification are recorded in section A and `docs/EMERGENCY_ALERTS.md`.
 
 **Task 8: One domain path for trip status changes**
 - Admin "Mark delayed / Mark completed / Cancel" must go through `IDriverTripService`-style logic (or a shared `ITripStatusService`): set Actual times, notify passengers (cancel gets its own message), broadcast over SignalR. Add a simple allowed-transitions check. Notify on Cancelled.
