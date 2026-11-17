@@ -8,6 +8,15 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 8 — One lifecycle path for trip status changes (2026-11-17; implementation complete, runtime verification pending)**
+- [x] Renamed driver lifecycle service/interface with `git mv` to `TripLifecycleService` / `ITripLifecycleService`; updated DI, driver API/Razor callers and existing tests. `TripStatusRules.CanTransition` enforces the eight requested transitions; terminal/self transitions are rejected before side effects.
+- [x] Admin Edit loads a tracked Trip by id and uses the lifecycle service for delay (optional reason), resume and completion. Details cancellation has an optional reason and confirmation flow. Missing IDs return 404; lifecycle errors are shown through TempData. Removed the admin status setter; only lifecycle code mutates existing trip statuses.
+- [x] Cancellation appends enum value 7, notifies active holders with `Your trip has been cancelled.` plus optional reason and broadcasts the same status event as driver actions. Existing actual times are preserved; SMS follows the existing explicit allowlist. Completion retains final-stop emergency alerts for admin and driver alike. No migration added.
+- [x] Added 57 focused cases covering all status pairs, lifecycle effects/rejections, active/voided recipients, repeated cancellation, SMS policy and real admin-versus-driver HTTP delay log/SignalR parity. Existing repeatable-delay test now resumes before a second delay. Inline fix: nullable driver API delay reason maps to an empty reason.
+- [x] Verification passed: backend and test-project rebuild (zero errors/warnings), frontend lint/build and all four Node tests. Existing Vite chunk-size warning remains.
+- [ ] Runtime verification: Windows Application Control blocks the generated backend/test assemblies (`0x800711C7`). Normal build/rebuild/retry did not clear it. Focused and full backend test runs could not execute reliably (full run reports 46 loader failures, not assertion results); EF update/model checks and local backend restart are also blocked. The earlier running backend was stopped to release its build lock and could not restart. No policy settings changed, no real SMS sent, and browser checks remain unverified. Re-run the exact commands in `docs/TRIP_LIFECYCLE.md` before accepting the draft PR.
+- Assumptions/limits: reasons optional; start and resume retain distinct meanings so resume never rewrites ActualDeparture; cancellation does not invent Actual times or void tickets. SMS Cancellation is opt-in, with InApp always requested. Existing save/notify/broadcast operations are separate, without new concurrency claims, outbox or retries. Task 9 is untouched.
+
 **Task 7 — Emergency contact alert on arrival (2026-11-17)**
 - [x] Driver destination arrival sends the exact first-name/stop-name SMS through `INotificationService` / `ISmsSender` to the saved contact, who needs no Hopon account. Only active destination tickets qualify; missing contacts and legacy null destinations are skipped.
 - [x] Passenger-owned Emergency/Sms log names the contact without their number. Success says “We told Mom you arrived.” Failed sends/exceptions are Failed with null SentAt; disabled/excluded SMS remains Pending with “SMS disabled”. Logging is explicitly simulated and remains Pending rather than claiming real delivery.
@@ -151,7 +160,7 @@ Fix these as part of the tasks below (each is referenced there).
 3. Resolved in Task 3: cryptographic OTP generation, older unused request invalidation, active-user checks and Development-only logging. Response code exposure is independently opt-in for demos.
 4. Resolved in Task 3: shared SA mobile normalisation for both OTP endpoints and emergency-contact create/update; invalid numbers return 400.
 5. Resolved in Task 4: tickets have nullable origin/destination TripStop FKs, with destination required and ordered for new issuance. Task 5 generates reminders/arrival alerts for destination tickets; old null-stop tickets are skipped for these alerts.
-6. **Admin status changes bypass the domain flow.** `UpdateTripStatusAsync` (Mark delayed / completed / cancel) doesn't set Actual times, doesn't notify passengers, and doesn't broadcast over SignalR.
+6. Implemented in Task 8: admin delay/resume/completion/cancellation now call `ITripLifecycleService`, including Actual times, passenger notifications and SignalR. The old admin setter is removed. Runtime acceptance is pending the Windows Application Control issue recorded in section A.
 7. Resolved in Task 1: stop arrival/departure queries require the authorized trip id.
 8. Resolved inline in Task 1: RecordLocationAsync interface parameter names now match the implementation (latitude, longitude); behavior is unchanged.
 9. Resolved inline in Task 1: user seed dates match the existing snapshot, preventing migration churn.
@@ -223,8 +232,9 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - [x] Exact privacy-limited SMS to saved contact on destination arrival; passenger-owned Emergency/Sms result log and dashboard feed. Unique user/trip/type claim prevents repeats; failed/disabled/simulated outcomes are truthful and are not retried.
 - [x] Driver completion fallback covers final-stop tickets without an arrival event; voided tickets are ignored. Migration, focused tests and verification are recorded in section A and `docs/EMERGENCY_ALERTS.md`.
 
-**Task 8: One domain path for trip status changes**
-- Admin "Mark delayed / Mark completed / Cancel" must go through `IDriverTripService`-style logic (or a shared `ITripStatusService`): set Actual times, notify passengers (cancel gets its own message), broadcast over SignalR. Add a simple allowed-transitions check. Notify on Cancelled.
+**Task 8: One domain path for trip status changes — implementation complete; runtime verification pending**
+- [x] Admin delay/resume/completion/cancellation and existing driver actions use the renamed `ITripLifecycleService`; centralized transition rules, cancellation message/type and active-holder delivery, tracked loading and visible errors are implemented. See section A and `docs/TRIP_LIFECYCLE.md` in the backend repo.
+- [ ] Run backend tests, EF checks and local startup after Windows Application Control permits the generated assemblies. PR remains draft pending these checks.
 - *Done when:* admin and driver produce identical side-effects for the same transition.
 
 **Task 9: Passenger UI completion**
