@@ -8,7 +8,6 @@ import './TripMap.css';
 const OPERATOR_LABEL = 'Intercape'; // no Operator in the data model yet, demo-only constant
 const GLIDE_MS = 1500;              // how long the bus takes to slide to a new GPS fix
 const FOLLOW_ZOOM = 10.5;
-const FIT_PADDING = { top: 90, bottom: 270, left: 50, right: 50 };
 
 
 //  Geometry helpers (all points are [lng, lat])                             
@@ -166,6 +165,17 @@ function addRouteLayers(map, route, colors, progress) {
     );
 }
 
+function mapPadding(map) {
+    const container = map.getContainer();
+    const bottom = container.parentElement.querySelector('.tm-bottom')?.offsetHeight ?? 270;
+    return {
+        top: Math.min(90, container.clientHeight * 0.15),
+        bottom: Math.min(bottom + 48, container.clientHeight * 0.65),
+        left: Math.min(50, container.clientWidth * 0.1),
+        right: Math.min(50, container.clientWidth * 0.1),
+    };
+}
+
 function fitToStops(map, stops, animate) {
     if (stops.length === 0) return;
     const first = [stops[0].longitude, stops[0].latitude];
@@ -173,12 +183,12 @@ function fitToStops(map, stops, animate) {
         (b, s) => b.extend([s.longitude, s.latitude]),
         new maplibregl.LngLatBounds(first, first),
     );
-    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 12, duration: animate ? 1000 : 0 });
+    map.fitBounds(bounds, { padding: mapPadding(map), maxZoom: 12, duration: animate ? 1000 : 0 });
 }
 
 //Component
 
-export default function TripMap({ stops, busPosition, routeName, status, styleKey, onStyleChange, children }) {
+export default function TripMap({ stops, busPosition, routeName, status, styleKey, onStyleChange, children, destinationStopName, destinationEstimatedArrival }) {
     // Refs: values the effects and the animation loop share without causing re-renders.
     const wrapRef = useRef(null);
     const mapElRef = useRef(null);
@@ -451,6 +461,7 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
                     </div>
                 </div>
 
+                <p className="your-stop">Your stop: {destinationStopName || '—'} · ETA {formatTime(destinationEstimatedArrival)} SAST</p>
                 <p className="tm-card__foot">
                     {lastUpdate ? `Last GPS update ${lastUpdate}` : 'Waiting for bus location…'}
                 </p>
@@ -470,7 +481,10 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
                         type="button"
                         disabled={!busPosition}
                         className={'tm-btn tm-btn--primary' + (follow ? ' is-on' : '')}
-                        onClick={() => setFollow((f) => !f)}
+                        onClick={() => {
+                            mapRef.current.setPadding(mapPadding(mapRef.current));
+                            setFollow((f) => !f);
+                        }}
                     >
                         {follow ? 'Following bus' : 'Follow bus'}
                     </button>

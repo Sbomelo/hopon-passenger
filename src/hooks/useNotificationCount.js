@@ -3,7 +3,7 @@ import { getNotifications } from '../api/hoponApi.js';
 import { countUnread, getNotificationsSeenAt, NOTIFICATIONS_SEEN_EVENT } from '../utils/notifications.js';
 
 export function useNotificationCount(token, enabled) {
-    const [notifications, setNotifications] = useState([]);
+    const [feed, setFeed] = useState({ token: null, items: [] });
     const [seenAt, setSeenAt] = useState(getNotificationsSeenAt);
 
     useEffect(() => {
@@ -28,7 +28,7 @@ export function useNotificationCount(token, enabled) {
             pending = true;
             try {
                 const items = await getNotifications(token);
-                if (!cancelled) setNotifications(items);
+                if (!cancelled) setFeed({ token, items });
             } catch {
                 // Keep the last count; the feed page displays fetch errors.
             } finally { pending = false; }
@@ -39,5 +39,5 @@ export function useNotificationCount(token, enabled) {
         return () => { cancelled = true; window.clearInterval(timer); };
     }, [token, enabled]);
 
-    return countUnread(notifications, seenAt);
+    return feed.token === token ? countUnread(feed.items, seenAt) : 0;
 }

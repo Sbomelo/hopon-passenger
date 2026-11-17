@@ -1,14 +1,14 @@
 import {useRef, useEffect} from 'react';
 import * as signalR from '@microsoft/signalr';
 
-export function useSignalR (tripId, token, onLocationUpdate, onStatusUpdate){
+export function useSignalR (tripId, token, onLocationUpdate, onStatusUpdate, onStopUpdate){
 
-    const callbacksRef = useRef({ onLocationUpdate, onStatusUpdate });
+    const callbacksRef = useRef({ onLocationUpdate, onStatusUpdate, onStopUpdate });
 
     // Use the latest callbacks without reconnecting on every parent render.
     useEffect(() => {
-        callbacksRef.current = { onLocationUpdate, onStatusUpdate };
-    }, [onLocationUpdate, onStatusUpdate]);
+        callbacksRef.current = { onLocationUpdate, onStatusUpdate, onStopUpdate };
+    }, [onLocationUpdate, onStatusUpdate, onStopUpdate]);
 
     useEffect(()=>{
 
@@ -27,6 +27,14 @@ export function useSignalR (tripId, token, onLocationUpdate, onStatusUpdate){
 
         connection.on('ReceiveTripStatusUpdate', (data) =>{
             callbacksRef.current.onStatusUpdate?.(data);
+        });
+
+        connection.on('ReceiveStopUpdate', (data) => {
+            callbacksRef.current.onStopUpdate?.(data);
+        });
+
+        connection.onreconnected(() => {
+            connection.invoke('JoinTrip', tripId).then(() => callbacksRef.current.onStopUpdate?.()).catch(() => {});
         });
 
         connection.start()
