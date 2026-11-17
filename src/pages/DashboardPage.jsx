@@ -1,8 +1,111 @@
 import { useState, useEffect } from 'react';
 import { getMyTrips } from '../api/hoponApi.js';
 import { formatTime, formatDate } from '../utils/format.js';
+import AppHeader from '../components/AppHeader.jsx';
 import EmergencyArrivalFeed from '../components/EmergencyArrivalFeed.jsx';
 
+
+export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip }) {
+    const [liveTrips, setLiveTrips] = useState([]);
+    const [pastTrips, setPastTrips] = useState([]);
+    const [loading, setLoading]     = useState(true);
+    const [error, setError]         = useState('');
+
+    useEffect(() => {
+        async function load() {
+            try {
+                const data = await getMyTrips(token);
+                setLiveTrips(data.liveTrips);
+                setPastTrips(data.pastTrips);
+            } catch (err) {
+                setError(err.message ?? 'Failed to load your trips.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        load();
+    }, [token]);
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+                <p style={{ opacity: 0.6 }}>Loading your trips…</p>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' }}>
+
+            <AppHeader title="Hopon" subtitle="My trips" onNavigate={onNavigate} onLogout={onLogout} />
+
+            <div style={{ flex: 1, padding: '1.25rem 1rem', maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+
+                <EmergencyArrivalFeed token={token} />
+
+                {error && (
+                    <p style={{ color: 'var(--color-danger)', marginBottom: '1rem', fontSize: '0.88rem' }}>
+                        {error}
+                    </p>
+                )}
+
+                <section style={{ marginBottom: '2rem' }}>
+                    <h2 style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.08em',
+                        opacity: 0.5,
+                        marginBottom: '0.75rem',
+                        textTransform: 'uppercase'
+                    }}>
+                        Active trips
+                    </h2>
+
+                    {liveTrips.length === 0 ? (
+                        <div style={{
+                            background: 'var(--color-surface)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: '12px',
+                            padding: '1.75rem',
+                            textAlign: 'center',
+                            opacity: 0.55,
+                            fontSize: '0.9rem'
+                        }}>
+                            No active trips right now.
+                        </div>
+                    ) : (
+                        liveTrips.map(trip => (
+                            <LiveTripCard
+                                key={trip.tripId}
+                                trip={trip}
+                                onOpenMap={() => onOpenTrip(trip.tripId)}
+                            />
+                        ))
+                    )}
+                </section>
+
+                {pastTrips.length > 0 && (
+                    <section>
+                        <h2 style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.08em',
+                            opacity: 0.5,
+                            marginBottom: '0.75rem',
+                            textTransform: 'uppercase'
+                        }}>
+                            Past trips
+                        </h2>
+                        {pastTrips.map(trip => (
+                            <PastTripCard key={trip.tripId} trip={trip} />
+                        ))}
+                    </section>
+                )}
+            </div>
+        </div>
+    );
+}
 
 function StatusBadge({ status }) {
     const color =
@@ -137,167 +240,3 @@ function PastTripCard({ trip }) {
 }
 
 
-export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip }) {
-    const [liveTrips, setLiveTrips] = useState([]);
-    const [pastTrips, setPastTrips] = useState([]);
-    const [loading, setLoading]     = useState(true);
-    const [error, setError]         = useState('');
-
-    useEffect(() => {
-        // Restore theme preference when this page mounts.
-        const saved = localStorage.getItem('hopon-theme');
-        if (saved) document.documentElement.setAttribute('data-theme', saved);
-
-        async function load() {
-            try {
-                const data = await getMyTrips(token);
-                setLiveTrips(data.liveTrips);
-                setPastTrips(data.pastTrips);
-            } catch (err) {
-                setError(err.message ?? 'Failed to load your trips.');
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        load();
-    }, [token]);
-
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme');
-        const next    = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        localStorage.setItem('hopon-theme', next);
-    }
-
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-                <p style={{ opacity: 0.6 }}>Loading your trips…</p>
-            </div>
-        );
-    }
-
-    return (
-        <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' }}>
-
-            <header style={{
-                background: 'var(--color-surface)',
-                borderBottom: '1px solid var(--color-border)',
-                padding: '0.7rem 1rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexShrink: 0
-            }}>
-                <div>
-                    <div style={{ fontWeight: 700, color: 'var(--color-interactive)', fontSize: '1.2rem' }}>
-                        Hopon
-                    </div>
-                    <div style={{ fontSize: '0.73rem', opacity: 0.55, marginTop: '0.05rem' }}>
-                        My trips
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button
-                        onClick={() => onNavigate('emergency-contact')}
-                        title="Emergency contact"
-                        style={iconBtnStyle}
-                    >
-                        Emergency Contact
-                    </button>
-
-                    <button onClick={toggleTheme} title="Toggle theme" style={iconBtnStyle}>
-                        🌙
-                    </button>
-
-                    <button
-                        onClick={onLogout}
-                        style={{
-                            ...iconBtnStyle,
-                            padding: '0.3rem 0.65rem',
-                            fontSize: '0.8rem',
-                            color: 'var(--color-text)'
-                        }}
-                    >
-                        Log out
-                    </button>
-                </div>
-            </header>
-
-            <div style={{ flex: 1, padding: '1.25rem 1rem', maxWidth: '600px', width: '100%', margin: '0 auto' }}>
-
-                <EmergencyArrivalFeed token={token} />
-
-                {error && (
-                    <p style={{ color: 'var(--color-danger)', marginBottom: '1rem', fontSize: '0.88rem' }}>
-                        {error}
-                    </p>
-                )}
-
-                <section style={{ marginBottom: '2rem' }}>
-                    <h2 style={{
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.08em',
-                        opacity: 0.5,
-                        marginBottom: '0.75rem',
-                        textTransform: 'uppercase'
-                    }}>
-                        Active trips
-                    </h2>
-
-                    {liveTrips.length === 0 ? (
-                        <div style={{
-                            background: 'var(--color-surface)',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: '12px',
-                            padding: '1.75rem',
-                            textAlign: 'center',
-                            opacity: 0.55,
-                            fontSize: '0.9rem'
-                        }}>
-                            No active trips right now.
-                        </div>
-                    ) : (
-                        liveTrips.map(trip => (
-                            <LiveTripCard
-                                key={trip.tripId}
-                                trip={trip}
-                                onOpenMap={() => onOpenTrip(trip.tripId)}
-                            />
-                        ))
-                    )}
-                </section>
-
-                {pastTrips.length > 0 && (
-                    <section>
-                        <h2 style={{
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.08em',
-                            opacity: 0.5,
-                            marginBottom: '0.75rem',
-                            textTransform: 'uppercase'
-                        }}>
-                            Past trips
-                        </h2>
-                        {pastTrips.map(trip => (
-                            <PastTripCard key={trip.tripId} trip={trip} />
-                        ))}
-                    </section>
-                )}
-            </div>
-        </div>
-    );
-}
-
-const iconBtnStyle = {
-    background: 'none',
-    border: '1px solid var(--color-border)',
-    borderRadius: '8px',
-    padding: '0.3rem 0.5rem',
-    cursor: 'pointer',
-    fontSize: '0.9rem'
-};
