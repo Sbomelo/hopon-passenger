@@ -48,14 +48,21 @@
 }
 
 /* Bottom card  */
-.tm-card {
+.tm-bottom {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: 32px; 
+  bottom: 32px;
   z-index: 2;
   max-width: 420px;
+  max-height: calc(100% - 94px);
+  overflow-y: auto;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tm-card {
   padding: 16px;
   border-radius: 20px;
   background: var(--color-surface);

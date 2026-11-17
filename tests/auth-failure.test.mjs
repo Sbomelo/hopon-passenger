@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
     AUTH_FAILURE_EVENT, getMyTrips, getMapData, getEmergencyContact,
-    upsertEmergencyContact, deleteEmergencyContact, verifyOtp, getNotifications,
+    upsertEmergencyContact, deleteEmergencyContact, verifyOtp, getNotifications, getBoardingStatus, boardTrip, alightTrip, getTripHistory, getAccessCheck,
 } from '../src/api/hoponApi.js';
 
 test('all authenticated API helpers signal logout for 401 and 403', async () => {
@@ -16,6 +16,7 @@ test('all authenticated API helpers signal logout for 401 and 403', async () => 
             () => getMyTrips('session-token'),
             () => getNotifications('session-token'),
             () => getMapData(1, 'session-token'),
+            ...[getBoardingStatus, boardTrip, alightTrip, getTripHistory, getAccessCheck].map(helper => () => helper(1, 'session-token')),
             () => getEmergencyContact('session-token'),
             () => upsertEmergencyContact('Contact', '+27000000001', 'session-token'),
             () => deleteEmergencyContact('session-token'),
@@ -45,4 +46,14 @@ test('all authenticated API helpers signal logout for 401 and 403', async () => 
         globalThis.fetch = originalFetch;
         globalThis.window = originalWindow;
     }
+});
+
+test('boarding preserves plain-text API errors and accepts empty success bodies', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+        globalThis.fetch = async () => new Response('Confirm boarding before confirming you have left the bus.', { status: 400 });
+        await assert.rejects(() => alightTrip(1, 'token'), /Confirm boarding before confirming you have left the bus/);
+        globalThis.fetch = async () => new Response(null, { status: 204 });
+        assert.equal(await deleteEmergencyContact('token'), null);
+    } finally { globalThis.fetch = originalFetch; }
 });

@@ -26,3 +26,15 @@ Manual checks at 360px and desktop, both themes:
 4. Navigate away from map/My trips and confirm notification polling stops in the Network panel; returning starts one interval.
 
 Validation: `npm run lint` and `npm run build` passed for 9b.
+
+## 9c — Boarding and alighting
+
+`BoardingPanel` is presentational. TripMapPage fetches status and owns mutations, busy/error state and retry. The existing map has a children slot above its bottom card in a scrollable stack; boarding never overlays the route/follow actions. Buttons stay in a compact row at phone width. The API helper now reads both JSON and plain-text errors and handles empty 204 responses. All six requested API wrappers are available.
+
+Manual checks at 360px and desktop, both themes:
+
+1. Open a live ticket that has no boarding logs: see “I've boarded”. Tap once: busy state disables repeated input, then the boarded SAST time and “I've left the bus” appear. Tap that: both confirmation times appear. Reload: the same state persists.
+2. Fail the boarding-status request: map stays usable and Retry status recovers it. Fail a mutation with a 400 string: its actual message appears and the button is enabled for retry.
+3. Check Whole route and Follow bus remain visible/clickable. On a short viewport, scroll the bottom stack to reach its actions.
+
+Validation: frontend lint/build and five Node tests passed, including authenticated wrappers, plain-text errors and empty bodies. Backend build passed with zero warnings/errors. The unchanged baseline full backend test attempt hit Windows Application Control `0x800711C7` loading Hopon.Api.dll (87 loader failures, zero assertion results); runtime acceptance remains pending.

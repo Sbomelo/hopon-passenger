@@ -178,7 +178,7 @@ function fitToStops(map, stops, animate) {
 
 //Component
 
-export default function TripMap({ stops, busPosition, routeName, status, styleKey, onStyleChange }) {
+export default function TripMap({ stops, busPosition, routeName, status, styleKey, onStyleChange, children }) {
     // Refs: values the effects and the animation loop share without causing re-renders.
     const wrapRef = useRef(null);
     const mapElRef = useRef(null);
@@ -423,6 +423,8 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
                 ))}
             </div>
 
+            <div className="tm-bottom">
+                {children}
             <section className="tm-card">
                 <header className="tm-card__head">
                     <div>
@@ -474,6 +476,7 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
                     </button>
                 </div>
             </section>
+            </div>
         </div>
     );
 }

@@ -164,3 +164,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .notification-item > div { min-width: 0; }
 .notification-item p { margin: 4px 0; }
 .notification-icon { color: var(--color-interactive); font-size: 1.5rem; }
+.boarding-panel { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); }
+.boarding-panel__row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.boarding-panel__row > div { min-width: 0; }
+.boarding-panel strong { font-size: .85rem; }
+.boarding-panel p { font-size: .72rem; overflow-wrap: anywhere; }
+.boarding-panel .hopon-btn { width: auto; flex-shrink: 0; padding: 10px; font-size: .8rem; }
+.boarding-panel .error-text { margin: 6px 0 0; }
