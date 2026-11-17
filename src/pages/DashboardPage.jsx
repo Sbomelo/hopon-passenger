@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getMyTrips } from '../api/hoponApi.js';
 import { formatTime, formatDate } from '../utils/format.js';
+import EmergencyArrivalFeed from '../components/EmergencyArrivalFeed.jsx';
 
 
 function StatusBadge({ status }) {
@@ -226,6 +227,8 @@ export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip 
             </header>
 
             <div style={{ flex: 1, padding: '1.25rem 1rem', maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+
+                <EmergencyArrivalFeed token={token} />
 
                 {error && (
                     <p style={{ color: 'var(--color-danger)', marginBottom: '1rem', fontSize: '0.88rem' }}>
