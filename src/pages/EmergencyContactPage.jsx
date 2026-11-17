@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDate } from '../utils/format.js';
 import {
     getEmergencyContact,
     upsertEmergencyContact,
@@ -177,8 +178,8 @@ export default function EmergencyContactPage({ token, onBack }) {
                             <div style={{ fontSize: '0.82rem', opacity: 0.65 }}>{contact.phoneNumber}</div>
                             <div style={{ fontSize: '0.72rem', opacity: 0.4, marginTop: '0.1rem' }}>
                                 {contact.updatedAt
-                                    ? `Updated ${new Date(contact.updatedAt).toLocaleDateString()}`
-                                    : `Added ${new Date(contact.createdAt).toLocaleDateString()}`}
+                                    ? `Updated ${formatDate(contact.updatedAt, true)}`
+                                    : `Added ${formatDate(contact.createdAt, true)}`}
                             </div>
                         </div>
                     </div>

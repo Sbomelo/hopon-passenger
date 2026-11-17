@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getMyTrips } from '../api/hoponApi.js';
+import { formatTime, formatDate } from '../utils/format.js';
 
 
 function StatusBadge({ status }) {
@@ -30,9 +31,6 @@ function StatusBadge({ status }) {
 }
 
 function LiveTripCard({ trip, onOpenMap }) {
-    const formatTime = (s) => new Date(s).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-    const formatDate = (s) => new Date(s).toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
-
     const etaColor = trip.status === 'Delayed' ? 'var(--color-danger)' : 'var(--color-interactive)';
 
     return (
@@ -106,9 +104,6 @@ function LiveTripCard({ trip, onOpenMap }) {
 }
 
 function PastTripCard({ trip }) {
-    const formatTime = (s) => new Date(s).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-    const formatDate = (s) => new Date(s).toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-
     return (
         <div style={{
             background: 'var(--color-surface)',
@@ -126,7 +121,7 @@ function PastTripCard({ trip }) {
                     {trip.routeName}
                 </div>
                 <div style={{ fontSize: '0.75rem', opacity: 0.55 }}>
-                    {formatDate(trip.tripDate)}
+                    {formatDate(trip.tripDate, true)}
                 </div>
                 <div style={{ fontSize: '0.75rem', opacity: 0.45, marginTop: '0.1rem' }}>
                     {formatTime(trip.scheduledDeparture)} → {formatTime(trip.scheduledArrival)}
