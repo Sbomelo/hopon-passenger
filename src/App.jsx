@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react"
 import { AUTH_FAILURE_EVENT } from './api/hoponApi.js'
+import { useNotificationCount } from './hooks/useNotificationCount.js';
+import NotificationsPage from './pages/NotificationsPage.jsx';
 import LoginPage from './pages/LoginPage.jsx'
 import TripMapPage from "./pages/TripMapPage.jsx"
 import DashboardPage        from './pages/DashboardPage.jsx';
@@ -12,6 +14,7 @@ function App() {
 
  const [currentPage, setCurrentPage] = useState('map');
  const [selectedTripId, setSelectedTripId] = useState(null);
+ const unreadCount = useNotificationCount(token, currentPage === 'dashboard' || currentPage === 'map');
  
  function handleLogin(newToken){
   localStorage.setItem("hopon_token", newToken)
@@ -48,10 +51,15 @@ if(!token){
   return <LoginPage onLogin={handleLogin} />
 }
 
+if (currentPage === 'notifications') {
+ return <NotificationsPage token={token} onNavigate={setCurrentPage} onLogout={handleLogout} />;
+}
+
 if (currentPage === 'dashboard') {
         return (
             <DashboardPage
                 token={token}
+                unreadCount={unreadCount}
                 onLogout={handleLogout}
                 onNavigate={setCurrentPage}
                 onOpenTrip={handleOpenTrip}
@@ -68,7 +76,7 @@ if (currentPage === 'emergency-contact') {
         );
   }
 
-return <TripMapPage token={token} onLogout={handleLogout}  onNavigate={setCurrentPage}  tripId={selectedTripId}/>
+return <TripMapPage unreadCount={unreadCount} token={token} onLogout={handleLogout}  onNavigate={setCurrentPage}  tripId={selectedTripId}/>
 }
 
 export default App

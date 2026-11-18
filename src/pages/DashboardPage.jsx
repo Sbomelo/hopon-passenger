@@ -5,7 +5,7 @@ import AppHeader from '../components/AppHeader.jsx';
 import EmergencyArrivalFeed from '../components/EmergencyArrivalFeed.jsx';
 
 
-export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip }) {
+export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip, unreadCount }) {
     const [liveTrips, setLiveTrips] = useState([]);
     const [pastTrips, setPastTrips] = useState([]);
     const [loading, setLoading]     = useState(true);
@@ -38,7 +38,7 @@ export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip 
     return (
         <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' }}>
 
-            <AppHeader title="Hopon" subtitle="My trips" onNavigate={onNavigate} onLogout={onLogout} />
+            <AppHeader title="Hopon" subtitle="My trips" unreadCount={unreadCount} onNotifications={() => onNavigate('notifications')} onNavigate={onNavigate} onLogout={onLogout} />
 
             <div style={{ flex: 1, padding: '1.25rem 1rem', maxWidth: '600px', width: '100%', margin: '0 auto' }}>
 
@@ -238,5 +238,3 @@ function PastTripCard({ trip }) {
         </div>
     );
 }
-
-

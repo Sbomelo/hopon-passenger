@@ -13,3 +13,16 @@ Manual checks at `http://localhost:5173`, at 360px and desktop widths, in both t
 3. Check a long route title: it truncates while all header buttons stay visible. Open the menu, tab through its buttons, dismiss with Escape/outside click, then reopen and navigate.
 
 Validation: `npm run lint`, `npm run build`, `node --test tests/*.test.mjs`. Vite retains the existing large MapLibre chunk warning. Browser acceptance results are recorded below after the complete flow is available.
+
+## 9b — Notifications
+
+The bell opens `NotificationsPage`, newest first, with type icons/labels, optional route names, relative time, absolute SAST time, channel and truthful delivery status. Route names come from my-trips when available, without changing the notifications API. Empty, loading, error and retry states are provided. Dashboard/map poll every 30 seconds and clean up their timers; failed polls preserve the last count. The shared localStorage timestamp is browser-local, not a server read receipt or a per-user cross-device setting. A per-user SignalR group would be a future alternative to polling.
+
+Manual checks at 360px and desktop, both themes:
+
+1. With existing trip notifications, open My trips: the bell shows a count for items newer than `hopon-notifications-seen-at` (missing key counts all). Open the bell: newest updates appear first, with SAST time and route when available.
+2. Go back to My trips: the count clears for the displayed older updates. Create a driver delay and wait 30 seconds on My trips/map: the new notification counts as unread. Reload to verify the timestamp persists.
+3. Check a passenger with no notifications. Disconnect the backend and open the feed: show an error and Try again; reconnect and retry. A failed feed fetch must not mark notifications as seen.
+4. Navigate away from map/My trips and confirm notification polling stops in the Network panel; returning starts one interval.
+
+Validation: `npm run lint` and `npm run build` passed for 9b.

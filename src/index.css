@@ -155,3 +155,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .overflow-menu button { display: block; width: 100%; padding: 12px; text-align: left; border: 0; border-radius: 6px; background: transparent; color: var(--color-text); cursor: pointer; }
 .overflow-menu button:hover { background: var(--color-surface-alt); }
 .notification-badge { position: absolute; top: -4px; right: -4px; border-radius: 999px; padding: 2px 5px; font-size: .65rem; background: var(--color-danger); color: var(--color-surface); }
+.passenger-page { min-height: 100dvh; background: var(--color-bg); }
+.page-content { width: 100%; max-width: 680px; margin: 0 auto; padding: 20px 16px; }
+.section-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 16px; margin-bottom: 12px; overflow-wrap: anywhere; }
+.muted, .notification-item time { font-size: .78rem; opacity: .75; }
+.notification-list { list-style: none; }
+.notification-item { display: flex; gap: 12px; line-height: 1.5; }
+.notification-item > div { min-width: 0; }
+.notification-item p { margin: 4px 0; }
+.notification-icon { color: var(--color-interactive); font-size: 1.5rem; }
