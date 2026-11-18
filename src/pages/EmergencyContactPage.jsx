@@ -22,9 +22,6 @@ export default function EmergencyContactPage({ token, onBack }) {
 
     // Load the current contact when the page mounts.
     useEffect(() => {
-        const saved = localStorage.getItem('hopon-theme');
-        if (saved) document.documentElement.setAttribute('data-theme', saved);
-
         async function load() {
             try {
                 const data = await getEmergencyContact(token);
