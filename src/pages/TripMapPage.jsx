@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getMyTrips, getMapData } from '../api/hoponApi.js';
+import { getMyTrips, getMapData, getBoardingStatus, boardTrip, alightTrip } from '../api/hoponApi.js';
 import { useSignalR } from '../hooks/useSignalR.js';
+import BoardingPanel from '../components/BoardingPanel.jsx';
 import TripMap from '../components/TripMap.jsx';
 import AppHeader from '../components/AppHeader.jsx';
 import { getTheme, setTheme } from '../utils/theme.js';
@@ -12,6 +13,10 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
     const [tripStatus,   setTripStatus]   = useState('');
     const [loading,      setLoading]      = useState(true);
     const [error,        setError]        = useState('');
+
+    const [boardingStatus, setBoardingStatus] = useState(null);
+    const [boardingBusy, setBoardingBusy] = useState(false);
+    const [boardingError, setBoardingError] = useState('');
 
     const [styleKey, setStyleKey] = useState(() =>
         getTheme() === 'dark' ? 'dark' : DEFAULT_LIGHT_STYLE
@@ -57,6 +62,28 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
 
         load();
     }, [token, tripIdProp]);
+
+    useEffect(() => {
+        if (!mapData?.tripId) return;
+        let cancelled = false;
+        getBoardingStatus(mapData.tripId, token).then(status => {
+            if (!cancelled) setBoardingStatus(status);
+        }).catch(err => {
+            if (!cancelled) setBoardingError(err.message);
+        });
+        return () => { cancelled = true; };
+    }, [mapData?.tripId, token]);
+
+    async function confirmBoarding(action) {
+        if (boardingBusy) return;
+        setBoardingBusy(true);
+        setBoardingError('');
+        try {
+            const status = await (boardingStatus ? action : getBoardingStatus)(mapData.tripId, token);
+            setBoardingStatus(status);
+        } catch (err) { setBoardingError(err.message); }
+        finally { setBoardingBusy(false); }
+    }
 
     useSignalR(
         mapData?.tripId,
@@ -114,7 +141,10 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                     status={tripStatus}
                     styleKey={styleKey}
                     onStyleChange={changeMapStyle}
-                />
+                >
+                    <BoardingPanel status={boardingStatus} busy={boardingBusy} error={boardingError}
+                        onBoard={() => confirmBoarding(boardTrip)} onAlight={() => confirmBoarding(alightTrip)} />
+                </TripMap>
             </div>
         </div>
     );
