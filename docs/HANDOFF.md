@@ -12,6 +12,7 @@ Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api;
 - [x] Shared SQLite in-memory test host installs a recording SMS sender, fixed service clock and test JWT configuration. Hosted workers are driven explicitly in their own tests.
 - [x] Extended xUnit coverage for ETA, tracking eligibility, trip access, boarding and ticket issuance. The OTP-to-tracking integration test checks passenger isolation and SignalR access over an in-process WebSocket with the .NET client.
 - [x] Added separate GitHub Actions workflows for the backend and frontend repositories, README status badges and local test commands. The .NET 8-compatible solution runs both backend projects from the repository root.
+- [x] Verified 473 xUnit cases (23 new), five driver JavaScript tests and seven frontend tests. The Ubuntu xUnit run met the 60-second target. The Windows Release run was slower. Frontend lint and build passed. No migration.
 
 **Task 12 — Demo mode (2026-11-18)**
 - [x] Seed or reset a live N3 trip and yesterday’s completed trip using three fake passenger accounts, a 60-seat coach, the existing driver and UTC schedules. Reset is transactional and protects unrelated trips, tickets and logs.
