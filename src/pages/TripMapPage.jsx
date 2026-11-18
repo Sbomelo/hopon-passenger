@@ -6,7 +6,7 @@ import AppHeader from '../components/AppHeader.jsx';
 import { getTheme, setTheme } from '../utils/theme.js';
 import { MAP_STYLES, DEFAULT_LIGHT_STYLE } from '../components/mapStyles.js';
 
-export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripIdProp }) {
+export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripIdProp, unreadCount }) {
     const [mapData,      setMapData]      = useState(null);
     const [busPosition,  setBusPosition]  = useState(null);
     const [tripStatus,   setTripStatus]   = useState('');
@@ -102,6 +102,7 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
 
             <AppHeader title={mapData.routeName} subtitle={tripStatus === 'InProgress' ? 'In Progress' : tripStatus}
                 onBack={() => onNavigate('dashboard')} onNavigate={onNavigate} onLogout={onLogout}
+                unreadCount={unreadCount} onNotifications={() => onNavigate('notifications')}
                 isDark={isDark} onToggleTheme={toggleMapTheme} />
 
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
