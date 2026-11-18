@@ -188,7 +188,7 @@ function fitToStops(map, stops, animate) {
 
 //Component
 
-export default function TripMap({ stops, busPosition, routeName, status, styleKey, onStyleChange, children, destinationStopName, destinationEstimatedArrival }) {
+export default function TripMap({ stops, roadCoordinates, recentLocations, busPosition, routeName, status, styleKey, onStyleChange, children, destinationStopName, destinationEstimatedArrival }) {
     // Refs: values the effects and the animation loop share without causing re-renders.
     const wrapRef = useRef(null);
     const mapElRef = useRef(null);
@@ -347,14 +347,15 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
         if (ordered.length < 2) return;
 
         const ctrl = new AbortController();
-        fetchRoadRoute(ordered, ctrl.signal)
+        const geometry = roadCoordinates?.length ? Promise.resolve(roadCoordinates) : fetchRoadRoute(ordered, ctrl.signal);
+        geometry
             .then((coords) => setRoute(buildRoute(coords, ordered)))
             .catch((err) => {
                 if (err.name !== 'AbortError') console.error(err);
             });
 
         return () => ctrl.abort();
-    }, [stops]);
+    }, [stops, roadCoordinates]);
 
     /* 6. Draw the route, and re-draw it after every basemap switch (setStyle wipes custom layers) */
     useEffect(() => {
@@ -368,6 +369,34 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
         map.on('style.load', draw);
         return () => map.off('style.load', draw);
     }, [route]);
+
+    // Show the actual recent fixes over the travelled road, including on first load.
+    const trailRef = useRef([]);
+    useEffect(() => {
+        trailRef.current = recentLocations ?? [];
+    }, [recentLocations]);
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        let trail = trailRef.current;
+        if (busPosition && (!trail.length || busPosition.recordedAt > trail.at(-1).recordedAt)) {
+            trail = [...trail, busPosition].slice(-10);
+            trailRef.current = trail;
+        }
+        const data = { type: 'Feature', geometry: { type: 'MultiPoint', coordinates: trail.map(f => [f.longitude, f.latitude]) } };
+        const draw = () => {
+            const source = map.getSource('gps-trail');
+            if (source) { source.setData(data); return; }
+            const colors = readColors(wrapRef.current);
+            map.addSource('gps-trail', { type: 'geojson', data });
+            map.addLayer({ id: 'gps-trail', source: 'gps-trail', type: 'circle', paint: {
+                'circle-radius': 4, 'circle-color': colors.done, 'circle-stroke-width': 1.5, 'circle-stroke-color': colors.casing
+            } });
+        };
+        if (styleReadyRef.current) draw();
+        map.on('style.load', draw);
+        return () => map.off('style.load', draw);
+    }, [busPosition, recentLocations]);
 
     /* 7. New GPS fix -> glide the bus to it */
     useEffect(() => {

@@ -8,6 +8,12 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 12 — Demo mode (2026-11-18)**
+- [x] Seed or reset a live N3 trip and yesterday’s completed trip using three fake passenger accounts, a 60-seat coach, the existing driver and UTC schedules. Reset is transactional and protects unrelated trips, tickets and logs.
+- [x] Admin Simulator and the passenger map share a 230-point OSRM route. The simulator supports manual moves, arrival/departure, status changes and three-second auto-drive through the driver lifecycle service. The passenger map shows the recent GPS trail.
+- [x] Clean build, 449 backend tests, five driver JavaScript tests, seven passenger tests, lint and production build passed. Verified empty SQL Server migration, two seed runs and reset. Headless Edge covered OTP → live map, manual move, auto-drive on/off, live delay/resume, arrival/departure, completion, notifications and past-trip history.
+- [x] Both READMEs link to the demo run instructions and 60-second walkthrough. No migration added. Before public release, sanitise the historical seed phone numbers and driver password hash (section B.18).
+
 **Task 11 — Location throttling, audit and retention (2026-11-18)**
 - [x] Default-off ten-second driver auto-sharing with indicator/stop/cleanup; injectable-clock singleton three-second throttle, 15-second persistence, accepted-fix broadcasts and 250 km/h plausibility validation. API/Razor handle friendly throttled/rejected outcomes.
 - [x] Privacy-limited audit entity/migration, rolling five-minute read/join deduplication and failure-isolated writes; admin read-only filtered/paged `/Admin/Audit`.
@@ -285,11 +291,8 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - Audit log table for location/notification reads by passengers (UserId, TripId, Type, Timestamp). Keep it small.
 - `RetentionService` (BackgroundService, daily): 90 days after trip completion, delete location updates, notification logs, boarding logs; anonymise Users (name → "Deleted user", phone → hashed token) when they have no recent trips. Configurable days.
 
-**Task 12: Demo mode**
-- `DemoSeeder` runs in Development (or via `dotnet run -- --seed-demo`), idempotent, creates: route **Durban → Johannesburg**, stops Durban, Pietermaritzburg, Estcourt, Harrismith, Johannesburg Park Station with real GPS coordinates, a bus (reg + capacity), driver, a trip In Progress whose last known location is ≈2 h from Johannesburg (between Harrismith and Johannesburg), TripStops with realistic times and first stops marked Departed, tickets for the 3 seeded passengers with different destination stops.
-- Admin Simulator page (`/Admin/Simulator`): buttons "Move bus to next stop", "Trigger delay (with reason)", "Mark arrival at stop"; interpolates GPS along the route and posts it through the same service as the driver so passenger apps update live.
-- A `Reset demo` action. Document the one-command start in the README.
-- *Done when:* a fresh clone → migrations → run → the demo works end to end with no manual SQL.
+**Task 12: Demo mode — complete**
+- [x] From a fresh database, run migrations and `dotnet run -- --seed-demo`. Use `+27600000001` and open `/Admin/Simulator` in a second window. Repeat the pitch with `--reset-demo`. See **Run the demo** in the backend README.
 
 **Task 13: Automated tests**
 - xUnit project `Hopon.Api.Tests` using SQLite in-memory. Cover: `EtaCalculator`, `TripStatusRules`, OTP request/verify (rate limit, expiry, attempts), `TripAccessService`, `BoardingService`, `AdminTripService.IssueTicketAsync` (capacity, duplicate, seat taken), notification threshold logic, role separation (integration tests with `WebApplicationFactory`). Add a GitHub Actions workflow running build + tests + `npm run lint && npm run build`.
