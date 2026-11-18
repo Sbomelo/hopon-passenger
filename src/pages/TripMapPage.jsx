@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { getMyTrips, getMapData } from '../api/hoponApi.js';
 import { useSignalR } from '../hooks/useSignalR.js';
 import TripMap from '../components/TripMap.jsx';
+import AppHeader from '../components/AppHeader.jsx';
+import { getTheme, setTheme } from '../utils/theme.js';
 import { MAP_STYLES, DEFAULT_LIGHT_STYLE } from '../components/mapStyles.js';
 
 export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripIdProp }) {
@@ -12,18 +14,17 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
     const [error,        setError]        = useState('');
 
     const [styleKey, setStyleKey] = useState(() =>
-        localStorage.getItem('hopon-theme') === 'dark' ? 'dark' : DEFAULT_LIGHT_STYLE
+        getTheme() === 'dark' ? 'dark' : DEFAULT_LIGHT_STYLE
     );
     const isDark = MAP_STYLES[styleKey].dark;
 
-    useEffect(() => {
-        const theme = isDark ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('hopon-theme', theme);
-    }, [isDark]);
+    function changeMapStyle(key) {
+        setStyleKey(key);
+        setTheme(MAP_STYLES[key].dark ? 'dark' : 'light');
+    }
 
-    function toggleTheme() {
-        setStyleKey(isDark ? DEFAULT_LIGHT_STYLE : 'dark');
+    function toggleMapTheme() {
+        changeMapStyle(isDark ? DEFAULT_LIGHT_STYLE : 'dark');
     }
 
     useEffect(() => {
@@ -95,62 +96,13 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
         );
     }
 
-    const statusColor =
-        tripStatus === 'Delayed'   ? 'var(--color-danger)'      :
-        tripStatus === 'Completed' ? 'var(--color-success)'     :
-                                     'var(--color-interactive)';
-
-    const headerBtn = { background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '0.3rem 0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--color-text)' };
-
     return (
        
         <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
 
-            <header style={{
-                background: 'var(--color-surface)',
-                borderBottom: '1px solid var(--color-border)',
-                padding: '0.7rem 1rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexShrink: 0,
-                gap: '0.5rem'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                    <button onClick={() => onNavigate('dashboard')} title="Back to my trips" style={{ ...headerBtn, flexShrink: 0 }}>
-                        Trips
-                    </button>
-                    <div style={{ fontWeight: 700, color: 'var(--color-interactive)', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {mapData.routeName}
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                    <span style={{
-                        background: 'var(--color-surface-alt)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: '999px',
-                        padding: '0.2rem 0.65rem',
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        color: statusColor
-                    }}>
-                        {tripStatus === 'InProgress' ? 'In Progress' : tripStatus}
-                    </span>
-
-                    <button onClick={toggleTheme} title="Toggle theme" style={headerBtn}>
-                        {isDark ? '☀️' : '🌙'}
-                    </button>
-
-                    <button onClick={() => onNavigate('emergency-contact')} title="Emergency contact" style={headerBtn}>
-                        Emergency Contact
-                    </button>
-
-                    <button onClick={onLogout} style={{ ...headerBtn, padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}>
-                        Log out
-                    </button>
-                </div>
-            </header>
+            <AppHeader title={mapData.routeName} subtitle={tripStatus === 'InProgress' ? 'In Progress' : tripStatus}
+                onBack={() => onNavigate('dashboard')} onNavigate={onNavigate} onLogout={onLogout}
+                isDark={isDark} onToggleTheme={toggleMapTheme} />
 
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                 <TripMap
@@ -160,7 +112,7 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                     routeName={mapData.routeName}
                     status={tripStatus}
                     styleKey={styleKey}
-                    onStyleChange={setStyleKey}
+                    onStyleChange={changeMapStyle}
                 />
             </div>
         </div>
