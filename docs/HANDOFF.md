@@ -8,6 +8,24 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 11 — Location throttling, audit and retention (2026-11-18)**
+- [x] Default-off ten-second driver auto-sharing with indicator/stop/cleanup; injectable-clock singleton three-second throttle, 15-second persistence, accepted-fix broadcasts and 250 km/h plausibility validation. API/Razor handle friendly throttled/rejected outcomes.
+- [x] Privacy-limited audit entity/migration, rolling five-minute read/join deduplication and failure-isolated writes; admin read-only filtered/paged `/Admin/Audit`.
+- [x] Daily 02:00 SAST retention worker with disabled Development/default, enabled Production, default dry run, batched deletes, unique identity anonymisation and contact removal. `/Admin/Retention` exposes in-memory summary and a dry-run-only action that respects disabled mode.
+- [x] Backend build zero warnings/errors; five driver JS tests and frontend lint/build passed. SQL migration applied/no pending model changes; eight admin page/theme/viewport checks and disabled dry-run POST passed. Hopon starts on 5101; temporary QA admin removed; demo records and real SMS untouched.
+- [x] All **443 backend tests** passed, including 25 new privacy cases; isolated scheduler fixture updated for the new throttle dependency (15 focused scheduler tests passed). Earlier Application Control blocks cleared on normal rebuild/retry, without policy changes; empty discovery was not treated as a pass. Delivered as three ordered backend commits/PRs: location → audit → retention (`task-11-privacy-ops`). See backend `docs/PRIVACY_OPS.md` for commands, migration, assumptions and optional device GPS acceptance. Task 12 untouched.
+
+**Task 10 — Admin console completion (2026-11-18)**
+- [x] 10a: Admin home and post-login landing page; SAST-day trip/ticket counts and rolling 24-hour Sent/Failed notification-attempt counts.
+- [x] 10b: Admin-only live monitor with latest GPS/age/stale highlighting/OSM, next Pending stop, final schedule-offset ETA and Details links. A no-store JSON handler and `wwwroot/js/monitor.js` refresh the table every 15 seconds without navigation; failures retain the last snapshot and retry.
+- [x] 10c: Read-only notification log with combined trip/passenger/type/channel/status filters, stable newest-first paging at 50 rows, preserved filters and SAST timestamps.
+- [x] 10d: Scheduled-only Void/Reinstate ticket forms and service rules; reinstate checks passenger/capacity/seat and preserves the original reference. Active-ticket delivery/access checks remain in force; void also evicts existing SignalR trip-group connections, with serialized joins/revocations and disconnect cleanup.
+- [x] 10e: Validated Bus/Stop/Route CRUD, OSM point checks, confirmed destructive actions and friendly FK failures. Ordered route stops remain contiguous/unique through transactional swaps; any referenced trip locks reorder/remove, with the reason shown. Appends affect future trips only. Existing TripStop generation is verified and now coordinates with route edits transactionally.
+- [x] 10f: All new pages in the admin nav; responsive table containers and existing theme variables. Inline dark-mode brand/link visibility and separate-ticket-form validation fixes.
+- [x] Verification: backend rebuild zero warnings/errors; all **418 backend tests** passed (36 new cases, including an actual WebSocket revocation/rejoin check); frontend lint/build passed. Registration migration applied to local SQL Server after duplicate/length preflight; no pending model changes. Headless Edge verified 28 page/theme/viewport combinations plus timed monitor update/stale/error/empty/safe-text behavior without page navigation. Backend 5101 and Vite 5173 run.
+- Delivery: six ordered backend commits, split into an operations PR, a ticket PR and a master-data/navigation PR. Exact URLs, commands, assumptions and migration preflight are in backend `docs/ADMIN_CONSOLE.md`. One new migration: `20261118064058_AddUniqueBusRegistration`; old migrations unchanged. The index permits legacy empty registrations; new writes require a nonempty unique normalized registration.
+- Environment: Windows Application Control intermittently blocked startup/test assemblies. Normal rebuild/retry and the normal `dotnet` host restored execution; the final full suite passed. No policy settings changed. A browser connector timeout was handled with headless Edge. Browser polling checks used synthetic JSON rather than altering demo trips. Temporary QA admin is removed after review; no paid SMS was sent. Task 11/12 work remains untouched.
+
 **Task 9 — Passenger UI completion (2026-11-17; implementation complete, visual acceptance pending)**
 - [x] 9a: restore theme before React render through one theme helper; compact shared header with bell, theme and overflow controls. Map style/theme coupling is retained.
 - [x] 9b: newest-first notifications with type icons, relative/absolute SAST time, optional routes and loading/empty/error/retry states. Browser-local seen timestamp drives unread polling every 30 seconds on dashboard/map with cleanup.
@@ -175,7 +193,7 @@ Fix these as part of the tasks below (each is referenced there).
 8. Resolved inline in Task 1: RecordLocationAsync interface parameter names now match the implementation (latitude, longitude); behavior is unchanged.
 9. Resolved inline in Task 1: user seed dates match the existing snapshot, preventing migration churn.
 10. Resolved in Task 3b: configured CORS allowlist, validated typed JWT/CORS/OTP options, secrets/env setup documentation, Production HTTPS/HSTS/proxy support, and one token-service registration. Historical credential rotation remains owner action.
-11. Every GPS fix is written to `LocationUpdates` forever, and each driver POST triggers a DB write + broadcast. Needs a throttle and retention (Task 11).
+11. Implemented in Task 11: accepted fixes broadcast with three-second throttling, 15-second persistence and configurable retention. All 443 backend tests passed; deletion defaults to disabled/dry-run as documented above.
 12. Typos in DTO property names (`MyTripDto.ActualDepature`, `DriverTripDto.BusRegistraton`) — rename only together with frontend usages.
 13. Resolved in Task 0: removed unused Leaflet/add dependencies; README now describes MapLibre GL JS + OpenFreeMap.
 14. Task 1 adds staff authentication, driver ownership and bootstrap tests. Broader coverage remains Task 13.
@@ -256,12 +274,13 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 - Use the existing `DashboardPage` conventions. Verify on a 360px-wide viewport.
 - *Done when:* every passenger capability in AGENTS.md section 1 is reachable from the UI.
 
-**Task 10: Admin console completion**
-- Notification log page (filter by trip/user/type/status), vehicle last-known location per active trip, Bus/Route/Stop CRUD (Routes with ordered stops → generating TripStops on trip creation if not already done), Void ticket (set `IsActive=false`; allowed only before the trip starts), driver management (from Task 1).
-- Verify trip creation generates `TripStops` from `RouteStops` with scheduled times — if not, implement.
+**Task 10: Admin console completion — complete**
+- [x] Admin home/login landing, live monitor, filtered/paged notification log, Scheduled ticket Void/Reinstate, Bus/Stop/ordered Route CRUD and admin navigation.
+- [x] Trip creation generates TripStops; route-edit invariants and ticket revocation/reinstatement have service/HTTP/WebSocket coverage. All 418 backend tests, required build/lint, SQL migration/model checks and rendered admin checks passed. See section A and backend `docs/ADMIN_CONSOLE.md`.
 
 ### Phase 3 — Demo, privacy, quality, deploy
-**Task 11: Location throttling, audit, retention (POPIA)**
+**Task 11: Location throttling, audit, retention (POPIA) — complete**
+- [x] A/B/C implemented; 443 backend tests, five driver JS tests, frontend lint/build, SQL migration/model checks and eight admin theme/viewport checks passed. See section A and backend `docs/PRIVACY_OPS.md`.
 - Driver GPS: client posts every 5–10 s; server ignores fixes < 3 s apart for the same trip. Persist at most one fix per ~15 s but broadcast every fix. Prune `LocationUpdates` older than N days.
 - Audit log table for location/notification reads by passengers (UserId, TripId, Type, Timestamp). Keep it small.
 - `RetentionService` (BackgroundService, daily): 90 days after trip completion, delete location updates, notification logs, boarding logs; anonymise Users (name → "Deleted user", phone → hashed token) when they have no recent trips. Configurable days.
