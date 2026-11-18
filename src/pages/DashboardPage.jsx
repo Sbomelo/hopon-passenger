@@ -5,7 +5,7 @@ import AppHeader from '../components/AppHeader.jsx';
 import EmergencyArrivalFeed from '../components/EmergencyArrivalFeed.jsx';
 
 
-export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip, unreadCount }) {
+export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip, onOpenHistory, unreadCount }) {
     const [liveTrips, setLiveTrips] = useState([]);
     const [pastTrips, setPastTrips] = useState([]);
     const [loading, setLoading]     = useState(true);
@@ -98,7 +98,7 @@ export default function DashboardPage({ token, onLogout, onNavigate, onOpenTrip,
                             Past trips
                         </h2>
                         {pastTrips.map(trip => (
-                            <PastTripCard key={trip.tripId} trip={trip} />
+                            <PastTripCard key={trip.tripId} trip={trip} onOpen={() => onOpenHistory(trip.tripId)} />
                         ))}
                     </section>
                 )}
@@ -195,6 +195,8 @@ function LiveTripCard({ trip, onOpenMap }) {
                 )}
             </div>
 
+            <p className="your-stop">Your stop: {trip.destinationStopName || '—'} · ETA {formatTime(trip.destinationEstimatedArrival)} SAST</p>
+
             {/* Track button */}
             <button
                 onClick={onOpenMap}
@@ -207,9 +209,9 @@ function LiveTripCard({ trip, onOpenMap }) {
     );
 }
 
-function PastTripCard({ trip }) {
+function PastTripCard({ trip, onOpen }) {
     return (
-        <div style={{
+        <button type="button" className="past-trip-button" onClick={onOpen} aria-label={`View history for ${trip.routeName}, ticket ${trip.ticketReference}`} style={{
             background: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
             borderRadius: '12px',
@@ -235,6 +237,6 @@ function PastTripCard({ trip }) {
                 </div>
             </div>
             <StatusBadge status={trip.status} />
-        </div>
+        </button>
     );
 }

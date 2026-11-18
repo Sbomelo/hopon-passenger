@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { getMyTrips, getMapData } from '../api/hoponApi.js';
+import { getMyTrips, getMapData, getBoardingStatus, boardTrip, alightTrip, getEmergencyContact } from '../api/hoponApi.js';
 import { useSignalR } from '../hooks/useSignalR.js';
+import SosSheet from '../components/SosSheet.jsx';
+import BoardingPanel from '../components/BoardingPanel.jsx';
 import TripMap from '../components/TripMap.jsx';
 import AppHeader from '../components/AppHeader.jsx';
 import { getTheme, setTheme } from '../utils/theme.js';
@@ -12,6 +14,15 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
     const [tripStatus,   setTripStatus]   = useState('');
     const [loading,      setLoading]      = useState(true);
     const [error,        setError]        = useState('');
+
+    const [sosOpen, setSosOpen] = useState(false);
+    const [contact, setContact] = useState(null);
+    const [contactLoading, setContactLoading] = useState(true);
+    const [contactError, setContactError] = useState('');
+
+    const [boardingStatus, setBoardingStatus] = useState(null);
+    const [boardingBusy, setBoardingBusy] = useState(false);
+    const [boardingError, setBoardingError] = useState('');
 
     const [styleKey, setStyleKey] = useState(() =>
         getTheme() === 'dark' ? 'dark' : DEFAULT_LIGHT_STYLE
@@ -58,6 +69,56 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
         load();
     }, [token, tripIdProp]);
 
+    useEffect(() => {
+        if (!mapData?.tripId) return;
+        let cancelled = false;
+        getBoardingStatus(mapData.tripId, token).then(status => {
+            if (!cancelled) setBoardingStatus(status);
+        }).catch(err => {
+            if (!cancelled) setBoardingError(err.message);
+        });
+        return () => { cancelled = true; };
+    }, [mapData?.tripId, token]);
+
+    async function confirmBoarding(action) {
+        if (boardingBusy) return;
+        setBoardingBusy(true);
+        setBoardingError('');
+        try {
+            const status = await (boardingStatus ? action : getBoardingStatus)(mapData.tripId, token);
+            setBoardingStatus(status);
+        } catch (err) { setBoardingError(err.message); }
+        finally { setBoardingBusy(false); }
+    }
+
+    useEffect(() => {
+        if (!sosOpen) return;
+        let cancelled = false;
+        getEmergencyContact(token).then(data => {
+            if (!cancelled) setContact(data);
+        }).catch(err => {
+            if (!cancelled) setContactError(err.message);
+        }).finally(() => {
+            if (!cancelled) setContactLoading(false);
+        });
+        return () => { cancelled = true; };
+    }, [sosOpen, token]);
+
+    function openSos() {
+        setContact(null);
+        setContactError('');
+        setContactLoading(true);
+        setSosOpen(true);
+    }
+
+    async function refreshMapData() {
+        try {
+            const data = await getMapData(mapData.tripId, token);
+            setMapData(data);
+            setTripStatus(data.status);
+        } catch (err) { setError(err.message); }
+    }
+
     useSignalR(
         mapData?.tripId,
         token,
@@ -70,7 +131,9 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
         },
         (statusData) => {
             setTripStatus(statusData.status);
-        }
+            refreshMapData();
+        },
+        refreshMapData
     );
 
     if (loading) {
@@ -111,10 +174,18 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                     stops={mapData.stops}
                     busPosition={busPosition}
                     routeName={mapData.routeName}
+                    destinationStopName={mapData.destinationStopName}
+                    destinationEstimatedArrival={mapData.destinationEstimatedArrival}
                     status={tripStatus}
                     styleKey={styleKey}
                     onStyleChange={changeMapStyle}
-                />
+                >
+                    <BoardingPanel status={boardingStatus} busy={boardingBusy} error={boardingError}
+                        onBoard={() => confirmBoarding(boardTrip)} onAlight={() => confirmBoarding(alightTrip)} />
+                </TripMap>
+                <button className="sos-button" onClick={openSos} aria-label="SOS emergency help">SOS</button>
+                {sosOpen && <SosSheet contact={contact} loading={contactLoading} error={contactError}
+                    onClose={() => setSosOpen(false)} onEditContact={() => onNavigate('emergency-contact')} />}
             </div>
         </div>
     );

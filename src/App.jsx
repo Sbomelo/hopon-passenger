@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { AUTH_FAILURE_EVENT } from './api/hoponApi.js'
 import { useNotificationCount } from './hooks/useNotificationCount.js';
+import TripHistoryPage from './pages/TripHistoryPage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import LoginPage from './pages/LoginPage.jsx'
 import TripMapPage from "./pages/TripMapPage.jsx"
@@ -30,6 +31,11 @@ function App() {
   setSelectedTripId(null);
  }
 
+ function handleOpenHistory(tripId) {
+  setSelectedTripId(tripId);
+  setCurrentPage('history');
+ }
+
  function handleOpenTrip(tripId) {
         setSelectedTripId(tripId);
         setCurrentPage('map');
@@ -51,6 +57,10 @@ if(!token){
   return <LoginPage onLogin={handleLogin} />
 }
 
+if (currentPage === 'history') {
+ return <TripHistoryPage key={selectedTripId} tripId={selectedTripId} token={token} onNavigate={setCurrentPage} onLogout={handleLogout} />;
+}
+
 if (currentPage === 'notifications') {
  return <NotificationsPage token={token} onNavigate={setCurrentPage} onLogout={handleLogout} />;
 }
@@ -62,6 +72,7 @@ if (currentPage === 'dashboard') {
                 unreadCount={unreadCount}
                 onLogout={handleLogout}
                 onNavigate={setCurrentPage}
+                onOpenHistory={handleOpenHistory}
                 onOpenTrip={handleOpenTrip}
             />
         );

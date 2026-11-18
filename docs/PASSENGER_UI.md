@@ -26,3 +26,34 @@ Manual checks at 360px and desktop, both themes:
 4. Navigate away from map/My trips and confirm notification polling stops in the Network panel; returning starts one interval.
 
 Validation: `npm run lint` and `npm run build` passed for 9b.
+
+## 9c — Boarding and alighting
+
+`BoardingPanel` is presentational. TripMapPage fetches status and owns mutations, busy/error state and retry. The existing map has a children slot above its bottom card in a scrollable stack; boarding never overlays the route/follow actions. Buttons stay in a compact row at phone width. The API helper now reads both JSON and plain-text errors and handles empty 204 responses. All six requested API wrappers are available.
+
+Manual checks at 360px and desktop, both themes:
+
+1. Open a live ticket that has no boarding logs: see “I've boarded”. Tap once: busy state disables repeated input, then the boarded SAST time and “I've left the bus” appear. Tap that: both confirmation times appear. Reload: the same state persists.
+2. Fail the boarding-status request: map stays usable and Retry status recovers it. Fail a mutation with a 400 string: its actual message appears and the button is enabled for retry.
+3. Check Whole route and Follow bus remain visible/clickable. On a short viewport, scroll the bottom stack to reach its actions.
+
+Validation: frontend lint/build and five Node tests passed, including authenticated wrappers, plain-text errors and empty bodies. Backend build passed with zero warnings/errors. The unchanged baseline full backend test attempt hit Windows Application Control `0x800711C7` loading Hopon.Api.dll (87 loader failures, zero assertion results); runtime acceptance remains pending.
+
+## 9d — History, destination and SOS
+
+PastTripCard opens a history page with ticket/seat, scheduled versus actual trip times, boarding/alighting times and an ordered dot/line stop timeline. Missing legacy values display a dash. Both live cards and the map bottom card display the passenger's destination and SAST ETA. Map data refreshes on status/stop events, and SignalR rejoins the ticketed group after reconnecting. Map framing allows for the bottom stack.
+
+Backend companion: history removes only `[RequireTripAccess]`; the Passenger role and service ticket-ownership query remain. Defect 15 is fixed for inactive tickets. Inline fix: my-trips now includes those tickets in Past trips, otherwise their history would remain unreachable. They never appear as trackable live cards. Map destination is selected from the authorized ticket, scoped to the loaded trip, using the existing schedule-offset calculator. Tracking endpoint and hub access rules are unchanged. No migration.
+
+SOS assumption: it opens a native modal bottom sheet showing the saved emergency contact and an explicit `tel:` link, plus `tel:10111`. Missing/failed contacts link to Emergency Contact. Opening SOS never auto-dials or sends messages. Native modal behavior provides focus trapping/Escape; the phone/browser handles a call only after a link is selected.
+
+Manual checks at 360px and desktop, both themes:
+
+1. My trips → a past card: verify route, ticket, seat, scheduled/actual times, boarded/left times and each stop in sequence. Check a legacy trip with missing actuals/stops and an inactive owned ticket; a different passenger must get 404 for the same history URL.
+2. Open two passengers' tickets for different stops on the same trip: cards/map must show each passenger's own stop. Start ten minutes late: destination ETA moves ten minutes. Mark that stop arrived: the map refreshes to its actual time. A null legacy destination displays a dash. Query-string destination spoofing must have no effect.
+3. Map → SOS: inspect the saved contact and both call links without selecting them. Close with Escape and check focus returns to SOS. Test with no contact and a failed contact load, then follow Emergency Contact to save one. No call or SMS should be made by opening the sheet.
+4. Check SOS does not overlap basemaps/navigation, and boarding does not cover Whole route/Follow bus. Use the bottom stack scrollbar if the viewport is short.
+
+Backend commands from `C:\dev\my-project\backend`: `dotnet build`, `dotnet test --no-build --filter FullyQualifiedName~PassengerUiTests`, `dotnet test --no-build`, `dotnet ef database update --no-build -- --environment Development`, `dotnet run --no-build --launch-profile http`. Four focused backend cases cover ownership/roles, inactive tickets, destination isolation, legacy nulls and schedule/actual ETA. Build passed; execution is subject to the existing Application Control blocker.
+
+Inline verification fixes: unread data is tied to the current session token so switching passengers cannot briefly show another session's count. Node coverage verifies unread timestamp boundaries, relative-time boundaries/clock skew and midnight SAST rollover.
