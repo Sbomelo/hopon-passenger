@@ -130,6 +130,10 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
             });
         },
         (statusData) => {
+            if (statusData.status === 'Completed' || statusData.status === 'Cancelled') {
+                onNavigate('dashboard');
+                return;
+            }
             setTripStatus(statusData.status);
             refreshMapData();
         },
@@ -172,6 +176,8 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                 <TripMap
                     key={mapData.tripId}
                     stops={mapData.stops}
+                    roadCoordinates={mapData.roadCoordinates}
+                    recentLocations={mapData.recentLocations}
                     busPosition={busPosition}
                     routeName={mapData.routeName}
                     destinationStopName={mapData.destinationStopName}

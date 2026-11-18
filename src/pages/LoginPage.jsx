@@ -57,12 +57,21 @@ export default function LoginPage({onLogin}){
 
                     {step === 1? (
                         <form onSubmit={handleRequestOtp}>
-                            <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>
+                            <label htmlFor="login-phone" style={{ fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>
                                 Phone number
                             </label>
-                            <input  className="hopon-input" type="tel" placeholder="+27 83 000 0000" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required autoFocus/>
+                            <input id="login-phone" className="hopon-input" type="tel" autoComplete="tel" placeholder="+27 83 000 0000" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} required autoFocus/>
                             {error && <p className="error-text">{error}</p>}
                             <button className="hopon-btn" type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send one-time code'}</button>
+                            <details className="privacy-notice">
+                                <summary>How Hopon uses your number</summary>
+                                <p><strong>Draft privacy notice — needs legal review before launch.</strong></p>
+                                <p>Hopon uses your phone number only to log you in and send trip notifications.</p>
+                                <p>Hopon shows a bus's location only to ticket holders of that specific trip.</p>
+                                <p>Retention policy: delete or anonymise personal trip data 90 days after the trip.
+                                    Automatic retention is not yet enabled in this demo.</p>
+                                <p>Privacy contact: <span>privacy@hopon.example</span> (placeholder — TODO for owner: replace with a working address).</p>
+                            </details>
                         </form>
                      ) : (
                         <form onSubmit={handleVerifyOtp}>
@@ -76,7 +85,10 @@ export default function LoginPage({onLogin}){
                                 </div>
                             )}
 
-                            <input  className="hopon-input" type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={code} onChange={e => setCode(e.target.value)}  required autoFocus  style={{ letterSpacing: '0.25em', fontSize: '1.3rem', textAlign: 'center' }}/>
+                            <label htmlFor="login-code">One-time code</label>
+                            <input id="login-code" className="hopon-input" type="text" autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="000000" value={code} onChange={e => setCode(e.target.value)} required autoFocus style={{ letterSpacing: '0.25em', fontSize: '1.3rem', textAlign: 'center' }}/>
+                            {error && <p className="error-text" role="alert">{error}</p>}
+                            <button type="submit" className="hopon-btn" disabled={loading}>{loading ? 'Verifying…' : 'Verify code'}</button>
                             
                             <button type="button"  onClick={() => { setStep(1); setError(''); setDevCode(''); setCode(''); }} style={{background: 'none', border: 'none', color: 'var(--color-interactive)', cursor: 'pointer', display: 'block',  margin: '0.9rem auto 0', fontSize: '0.88rem'}}>
                                 Change number
