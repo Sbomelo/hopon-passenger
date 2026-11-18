@@ -8,6 +8,12 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
+**Task 13 — Automated tests and CI (2026-11-18)**
+- [x] Shared SQLite in-memory test host installs a recording SMS sender, fixed service clock and test JWT configuration. Hosted workers are driven explicitly in their own tests.
+- [x] Extended xUnit coverage for ETA, tracking eligibility, trip access, boarding and ticket issuance. The OTP-to-tracking integration test checks passenger isolation and SignalR access over an in-process WebSocket with the .NET client.
+- [x] Added separate GitHub Actions workflows for the backend and frontend repositories, README status badges and local test commands. The .NET 8-compatible solution runs both backend projects from the repository root.
+- [x] Verified 473 xUnit cases (23 new), five driver JavaScript tests and seven frontend tests. The Ubuntu xUnit run met the 60-second target. The Windows Release run was slower. Frontend lint and build passed. No migration.
+
 **Task 12 — Demo mode (2026-11-18)**
 - [x] Seed or reset a live N3 trip and yesterday’s completed trip using three fake passenger accounts, a 60-seat coach, the existing driver and UTC schedules. Reset is transactional and protects unrelated trips, tickets and logs.
 - [x] Admin Simulator and the passenger map share a 230-point OSRM route. The simulator supports manual moves, arrival/departure, status changes and three-second auto-drive through the driver lifecycle service. The passenger map shows the recent GPS trail.
@@ -294,8 +300,8 @@ Each task = one branch + one PR. Acceptance criteria are what "done" means.
 **Task 12: Demo mode — complete**
 - [x] From a fresh database, run migrations and `dotnet run -- --seed-demo`. Use `+27600000001` and open `/Admin/Simulator` in a second window. Repeat the pitch with `--reset-demo`. See **Run the demo** in the backend README.
 
-**Task 13: Automated tests**
-- xUnit project `Hopon.Api.Tests` using SQLite in-memory. Cover: `EtaCalculator`, `TripStatusRules`, OTP request/verify (rate limit, expiry, attempts), `TripAccessService`, `BoardingService`, `AdminTripService.IssueTicketAsync` (capacity, duplicate, seat taken), notification threshold logic, role separation (integration tests with `WebApplicationFactory`). Add a GitHub Actions workflow running build + tests + `npm run lint && npm run build`.
+**Task 13: Automated tests and CI**
+- [x] Completed the coverage gaps and added a CI workflow to each repository. See section A for coverage and verification.
 
 **Task 14: Deployment**
 - Azure App Service + Azure SQL. Serve the React build from the API (`wwwroot` or a separate static host) — pick the simpler, document why. Enable WebSockets for SignalR. Production CORS, secrets in App Service config, `dotnet ef database update` via a migration bundle in CI. HTTPS only. Health endpoint.
