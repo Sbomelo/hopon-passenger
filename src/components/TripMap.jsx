@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MAP_STYLES } from './mapStyles.js';
 import { formatTime } from '../utils/format.js';
 import './TripMap.css';
+
+maplibregl.setWorkerUrl(workerUrl);
 
 const OPERATOR_LABEL = 'Intercape'; // no Operator in the data model yet, demo-only constant
 const GLIDE_MS = 1500;              // how long the bus takes to slide to a new GPS fix
