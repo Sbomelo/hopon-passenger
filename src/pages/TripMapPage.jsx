@@ -4,7 +4,6 @@ import { useSignalR } from '../hooks/useSignalR.js';
 import SosSheet from '../components/SosSheet.jsx';
 import BoardingPanel from '../components/BoardingPanel.jsx';
 import TripMap from '../components/TripMap.jsx';
-import AppHeader from '../components/AppHeader.jsx';
 import { getTheme, setTheme } from '../utils/theme.js';
 import { MAP_STYLES, DEFAULT_LIGHT_STYLE } from '../components/mapStyles.js';
 
@@ -167,17 +166,37 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
        
         <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
 
-            <AppHeader title={mapData.routeName} subtitle={tripStatus === 'InProgress' ? 'In Progress' : tripStatus}
-                onBack={() => onNavigate('dashboard')} onNavigate={onNavigate} onLogout={onLogout}
-                unreadCount={unreadCount} onNotifications={() => onNavigate('notifications')}
-                isDark={isDark} onToggleTheme={toggleMapTheme} />
+            <header className="tm-header">
+                <div className="tm-header__route">
+                    <button onClick={() => onNavigate('dashboard')} title="Back to my trips">Trips</button>
+                    <strong title={mapData.routeName}>{mapData.routeName}</strong>
+                </div>
+                <div className="tm-header__actions">
+                    <span className="tm-header__status" data-status={tripStatus}>
+                        {tripStatus === 'InProgress' ? 'In Progress' : tripStatus}
+                    </span>
+                    <button onClick={() => onNavigate('notifications')} aria-label={`Notifications, ${unreadCount ?? 0} unread`}>
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+                        </svg>
+                        {unreadCount > 0 && <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+                    </button>
+                    <button onClick={toggleMapTheme} aria-label="Toggle theme" title="Toggle theme">{isDark ? '☀️' : '🌙'}</button>
+                    <button onClick={() => onNavigate('emergency-contact')} aria-label="Emergency Contact" title="Emergency Contact">
+                        <span className="tm-header__label">Emergency Contact</span>
+                        <span className="tm-header__mobile-icon" aria-hidden="true">☎</span>
+                    </button>
+                    <button className="tm-header__logout" onClick={onLogout} aria-label="Log out" title="Log out">
+                        <span className="tm-header__label">Log out</span>
+                        <span className="tm-header__mobile-icon" aria-hidden="true">⇥</span>
+                    </button>
+                </div>
+            </header>
 
             <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                 <TripMap
                     key={mapData.tripId}
                     stops={mapData.stops}
-                    roadCoordinates={mapData.roadCoordinates}
-                    recentLocations={mapData.recentLocations}
                     busPosition={busPosition}
                     routeName={mapData.routeName}
                     destinationStopName={mapData.destinationStopName}
@@ -189,7 +208,7 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                     <BoardingPanel status={boardingStatus} busy={boardingBusy} error={boardingError}
                         onBoard={() => confirmBoarding(boardTrip)} onAlight={() => confirmBoarding(alightTrip)} />
                 </TripMap>
-                <button className="sos-button" onClick={openSos} aria-label="SOS emergency help">SOS</button>
+                <button className="tm-sos" onClick={openSos} aria-label="SOS emergency help">SOS</button>
                 {sosOpen && <SosSheet contact={contact} loading={contactLoading} error={contactError}
                     onClose={() => setSosOpen(false)} onEditContact={() => onNavigate('emergency-contact')} />}
             </div>

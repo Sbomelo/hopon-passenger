@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MAP_STYLES } from './mapStyles.js';
 import { formatTime } from '../utils/format.js';
 import './TripMap.css';
 
+maplibregl.setWorkerUrl(workerUrl);
+
 const OPERATOR_LABEL = 'Intercape'; // no Operator in the data model yet, demo-only constant
 const GLIDE_MS = 1500;              // how long the bus takes to slide to a new GPS fix
 const FOLLOW_ZOOM = 10.5;
+const FIT_PADDING = { top: 90, bottom: 270, left: 50, right: 50 };
 
 
 //  Geometry helpers (all points are [lng, lat])                             
@@ -165,17 +169,6 @@ function addRouteLayers(map, route, colors, progress) {
     );
 }
 
-function mapPadding(map) {
-    const container = map.getContainer();
-    const bottom = container.parentElement.querySelector('.tm-bottom')?.offsetHeight ?? 270;
-    return {
-        top: Math.min(90, container.clientHeight * 0.15),
-        bottom: Math.min(bottom + 48, container.clientHeight * 0.65),
-        left: Math.min(50, container.clientWidth * 0.1),
-        right: Math.min(50, container.clientWidth * 0.1),
-    };
-}
-
 function fitToStops(map, stops, animate) {
     if (stops.length === 0) return;
     const first = [stops[0].longitude, stops[0].latitude];
@@ -183,12 +176,12 @@ function fitToStops(map, stops, animate) {
         (b, s) => b.extend([s.longitude, s.latitude]),
         new maplibregl.LngLatBounds(first, first),
     );
-    map.fitBounds(bounds, { padding: mapPadding(map), maxZoom: 12, duration: animate ? 1000 : 0 });
+    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 12, duration: animate ? 1000 : 0 });
 }
 
 //Component
 
-export default function TripMap({ stops, roadCoordinates, recentLocations, busPosition, routeName, status, styleKey, onStyleChange, children, destinationStopName, destinationEstimatedArrival }) {
+export default function TripMap({ stops, busPosition, routeName, status, styleKey, onStyleChange, destinationStopName, destinationEstimatedArrival, children }) {
     // Refs: values the effects and the animation loop share without causing re-renders.
     const wrapRef = useRef(null);
     const mapElRef = useRef(null);
@@ -347,15 +340,14 @@ export default function TripMap({ stops, roadCoordinates, recentLocations, busPo
         if (ordered.length < 2) return;
 
         const ctrl = new AbortController();
-        const geometry = roadCoordinates?.length ? Promise.resolve(roadCoordinates) : fetchRoadRoute(ordered, ctrl.signal);
-        geometry
+        fetchRoadRoute(ordered, ctrl.signal)
             .then((coords) => setRoute(buildRoute(coords, ordered)))
             .catch((err) => {
                 if (err.name !== 'AbortError') console.error(err);
             });
 
         return () => ctrl.abort();
-    }, [stops, roadCoordinates]);
+    }, [stops]);
 
     /* 6. Draw the route, and re-draw it after every basemap switch (setStyle wipes custom layers) */
     useEffect(() => {
@@ -369,34 +361,6 @@ export default function TripMap({ stops, roadCoordinates, recentLocations, busPo
         map.on('style.load', draw);
         return () => map.off('style.load', draw);
     }, [route]);
-
-    // Show the actual recent fixes over the travelled road, including on first load.
-    const trailRef = useRef([]);
-    useEffect(() => {
-        trailRef.current = recentLocations ?? [];
-    }, [recentLocations]);
-    useEffect(() => {
-        const map = mapRef.current;
-        if (!map) return;
-        let trail = trailRef.current;
-        if (busPosition && (!trail.length || busPosition.recordedAt > trail.at(-1).recordedAt)) {
-            trail = [...trail, busPosition].slice(-10);
-            trailRef.current = trail;
-        }
-        const data = { type: 'Feature', geometry: { type: 'MultiPoint', coordinates: trail.map(f => [f.longitude, f.latitude]) } };
-        const draw = () => {
-            const source = map.getSource('gps-trail');
-            if (source) { source.setData(data); return; }
-            const colors = readColors(wrapRef.current);
-            map.addSource('gps-trail', { type: 'geojson', data });
-            map.addLayer({ id: 'gps-trail', source: 'gps-trail', type: 'circle', paint: {
-                'circle-radius': 4, 'circle-color': colors.done, 'circle-stroke-width': 1.5, 'circle-stroke-color': colors.casing
-            } });
-        };
-        if (styleReadyRef.current) draw();
-        map.on('style.load', draw);
-        return () => map.off('style.load', draw);
-    }, [busPosition, recentLocations]);
 
     /* 7. New GPS fix -> glide the bus to it */
     useEffect(() => {
@@ -455,6 +419,7 @@ export default function TripMap({ stops, roadCoordinates, recentLocations, busPo
                         key={key}
                         type="button"
                         className={'tm-chip' + (key === styleKey ? ' is-active' : '')}
+                        aria-pressed={key === styleKey}
                         onClick={() => onStyleChange(key)}
                     >
                         {s.label}
@@ -462,8 +427,6 @@ export default function TripMap({ stops, roadCoordinates, recentLocations, busPo
                 ))}
             </div>
 
-            <div className="tm-bottom">
-                {children}
             <section className="tm-card">
                 <header className="tm-card__head">
                     <div>
@@ -490,10 +453,17 @@ export default function TripMap({ stops, roadCoordinates, recentLocations, busPo
                     </div>
                 </div>
 
-                <p className="your-stop">Your stop: {destinationStopName || '—'} · ETA {formatTime(destinationEstimatedArrival)} SAST</p>
-                <p className="tm-card__foot">
-                    {lastUpdate ? `Last GPS update ${lastUpdate}` : 'Waiting for bus location…'}
-                </p>
+                <div className="tm-card__foot">
+                    Your stop: {destinationStopName || '—'} · ETA {destinationEstimatedArrival ? `${formatTime(destinationEstimatedArrival)} SAST` : '—'}
+                </div>
+                <div className="tm-card__foot tm-card__gps">
+                    <span>{lastUpdate ? `Last GPS update ${lastUpdate}` : 'Waiting for bus location…'}</span>
+                    <button className="tm-boarding-trigger" popoverTarget="tm-boarding">Boarding</button>
+                </div>
+                <div id="tm-boarding" className="tm-boarding" popover="auto" role="region" aria-label="Boarding details">
+                    {children}
+                    <button className="tm-btn" popoverTarget="tm-boarding" popoverTargetAction="hide">Close</button>
+                </div>
 
                 <div className="tm-card__actions">
                     <button
@@ -510,16 +480,12 @@ export default function TripMap({ stops, roadCoordinates, recentLocations, busPo
                         type="button"
                         disabled={!busPosition}
                         className={'tm-btn tm-btn--primary' + (follow ? ' is-on' : '')}
-                        onClick={() => {
-                            mapRef.current.setPadding(mapPadding(mapRef.current));
-                            setFollow((f) => !f);
-                        }}
+                        onClick={() => setFollow((f) => !f)}
                     >
                         {follow ? 'Following bus' : 'Follow bus'}
                     </button>
                 </div>
             </section>
-            </div>
         </div>
     );
 }
