@@ -4,7 +4,7 @@ import AppHeader from '../components/AppHeader.jsx';
 import { formatDateTime, formatRelativeTime } from '../utils/format.js';
 import { markNotificationsSeen } from '../utils/notifications.js';
 
-export default function NotificationsPage({ token, onNavigate, onLogout }) {
+export default function NotificationsPage({ token, profile, onNavigate, onLogout }) {
     const [notifications, setNotifications] = useState([]);
     const [routes, setRoutes] = useState({});
     const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export default function NotificationsPage({ token, onNavigate, onLogout }) {
     return (
         <div className="passenger-page">
             <AppHeader title="Notifications" onBack={() => onNavigate('dashboard')}
-                onNavigate={onNavigate} onLogout={onLogout} onNotifications={() => {}} />
+                profile={profile} onNavigate={onNavigate} onLogout={onLogout} />
             <main className="page-content">
                 {loading && <p role="status">Loading notifications…</p>}
                 {error && <div role="alert"><p className="error-text">{error}</p><button className="hopon-btn" onClick={retry}>Try again</button></div>}

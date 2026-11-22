@@ -140,7 +140,23 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   flex-shrink: 0;
 }
 .icon-button:disabled { opacity: .5; cursor: default; }
-.app-header__menu { position: relative; }
+.passenger-profile { position: relative; }
+.passenger-profile__trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(32vw, 16rem);
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font: 600 .85rem var(--font-base);
+  cursor: pointer;
+}
+.passenger-profile__trigger span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.passenger-profile__name { display: block; padding: 10px 12px; border-bottom: 1px solid var(--color-border); overflow-wrap: anywhere; }
 .overflow-menu {
   position: absolute;
   right: 0;
@@ -152,12 +168,15 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   background: var(--color-surface);
   box-shadow: 0 6px 24px var(--shadow-color);
 }
-.overflow-menu button { display: block; width: 100%; padding: 12px; text-align: left; border: 0; border-radius: 6px; background: transparent; color: var(--color-text); cursor: pointer; }
+.overflow-menu button { display: block; width: 100%; padding: 12px; text-align: left; border: 0; border-radius: 6px; background: transparent; color: var(--color-text); font: inherit; cursor: pointer; }
 .overflow-menu button:hover { background: var(--color-surface-alt); }
 .notification-badge { position: absolute; top: -4px; right: -4px; border-radius: 999px; padding: 2px 5px; font-size: .65rem; background: var(--color-danger); color: var(--color-surface); }
 .passenger-page { min-height: 100dvh; background: var(--color-bg); }
 .page-content { width: 100%; max-width: 680px; margin: 0 auto; padding: 20px 16px; }
 .section-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 16px; margin-bottom: 12px; overflow-wrap: anywhere; }
+.phone-change { max-width: 480px; }
+.phone-change form > p { margin-bottom: 12px; }
+.phone-change__edit { display: block; margin: 12px auto 0; padding: 8px; border: 0; background: transparent; color: var(--color-interactive); font: inherit; cursor: pointer; }
 .muted, .notification-item time { font-size: .78rem; opacity: .75; }
 .notification-list { list-style: none; }
 .notification-item { display: flex; gap: 12px; line-height: 1.5; }

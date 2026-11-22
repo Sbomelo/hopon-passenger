@@ -6,6 +6,17 @@ Companion to `AGENTS.md` (read that first). This file is the **source of truth f
 
 ## A. What is already built (verified in code)
 
+**Passenger trips, profile and live detours (2026-11-21)**
+- [x] OTP login and session reload open My trips with Active trips and Past trips. Passengers select Track on map on the active trip they want to follow.
+- [x] The full name opens a profile menu with Emergency contact, Change number and Log out. Login retains its separate Change number action for correcting the number entered for OTP.
+- [x] A signed-in change verifies an OTP sent to the new South African mobile number, then updates the same passenger account and issues a fresh token. Apply migration `20261121054737_AddPassengerPhoneChange` with `dotnet ef database update`.
+- [x] Two consecutive off-route GPS fixes switch the line to the observed detour. It updates as fixes arrive and retains the detour when the bus rejoins the planned line. It uses the existing basemaps and schedule-offset ETA.
+- [x] Verified the passenger flow at 360px in Edge with an isolated SQL Server demo database, Logging-mode OTP delivery and synthetic detour fixes over the live map's SignalR connection.
+
+**Staff navigation and theme alignment (2026-11-21)**
+- [x] The brand, staff account, logout and theme control share a single header row. Admin links appear in a grouped desktop sidebar or an expandable mobile menu, with the current page highlighted.
+- [x] Verified header alignment in Light and Arrivo at 320, 360, 800, 1024 and 1361px. All 11 admin destinations returned successfully in the authenticated browser check.
+
 Task 0 audit: **2026-11-16**, covering both repositories (`backend` = Hopon.Api; `frontend` = hopon-passenger). This handoff is copied into both repositories because the workspace-level `docs` directory is outside Git. API implementation is distinguished from usable UI below.
 
 **Task 13 — Automated tests and CI (2026-11-18)**

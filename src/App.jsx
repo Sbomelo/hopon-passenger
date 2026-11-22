@@ -1,93 +1,94 @@
-import { useState, useEffect } from "react"
-import { AUTH_FAILURE_EVENT } from './api/hoponApi.js'
+import { useEffect, useState } from 'react';
+import { AUTH_FAILURE_EVENT, getPassengerProfile } from './api/hoponApi.js';
 import { useNotificationCount } from './hooks/useNotificationCount.js';
-import TripHistoryPage from './pages/TripHistoryPage.jsx';
-import NotificationsPage from './pages/NotificationsPage.jsx';
-import LoginPage from './pages/LoginPage.jsx'
-import TripMapPage from "./pages/TripMapPage.jsx"
-import DashboardPage        from './pages/DashboardPage.jsx';
+import ChangeNumberPage from './pages/ChangeNumberPage.jsx';
+import DashboardPage from './pages/DashboardPage.jsx';
 import EmergencyContactPage from './pages/EmergencyContactPage.jsx';
-import './index.css'
+import LoginPage from './pages/LoginPage.jsx';
+import NotificationsPage from './pages/NotificationsPage.jsx';
+import TripHistoryPage from './pages/TripHistoryPage.jsx';
+import TripMapPage from './pages/TripMapPage.jsx';
+import './index.css';
 
-function App() {
+export default function App() {
+    const [token, setToken] = useState(() => localStorage.getItem('hopon_token'));
+    const [profile, setProfile] = useState(null);
+    const [currentPage, setCurrentPage] = useState('dashboard');
+    const [returnPage, setReturnPage] = useState('dashboard');
+    const [selectedTripId, setSelectedTripId] = useState(null);
+    const [notice, setNotice] = useState('');
+    const unreadCount = useNotificationCount(token, currentPage === 'dashboard' || currentPage === 'map');
 
- const[token,setToken] = useState(localStorage.getItem("hopon_token"))
+    function handleLogin(session) {
+        localStorage.setItem('hopon_token', session.token);
+        setToken(session.token);
+        setProfile({ fullName: session.fullName, phoneNumber: session.phoneNumber });
+        setCurrentPage('dashboard');
+        setSelectedTripId(null);
+        setNotice('');
+    }
 
- const [currentPage, setCurrentPage] = useState('map');
- const [selectedTripId, setSelectedTripId] = useState(null);
- const unreadCount = useNotificationCount(token, currentPage === 'dashboard' || currentPage === 'map');
- 
- function handleLogin(newToken){
-  localStorage.setItem("hopon_token", newToken)
-  setToken(newToken)
-  setCurrentPage('map');
-  setSelectedTripId(null);
- }
+    function handleLogout() {
+        localStorage.removeItem('hopon_token');
+        setToken(null);
+        setProfile(null);
+        setCurrentPage('dashboard');
+        setSelectedTripId(null);
+        setNotice('');
+    }
 
- function handleLogout(){
-  localStorage.removeItem("hopon_token")
-  setToken(null)
-  setCurrentPage('map');
-  setSelectedTripId(null);
- }
+    function navigate(page) {
+        if (page === 'emergency-contact' || page === 'change-number') setReturnPage(currentPage);
+        setNotice('');
+        setCurrentPage(page);
+    }
 
- function handleOpenHistory(tripId) {
-  setSelectedTripId(tripId);
-  setCurrentPage('history');
- }
-
- function handleOpenTrip(tripId) {
+    function openTrip(page, tripId) {
         setSelectedTripId(tripId);
-        setCurrentPage('map');
+        navigate(page);
     }
 
- useEffect(() => {
-  function handleAuthFailure(event) {
-   // Ignore a late response from a session that has already been replaced.
-   if (event.detail.token === localStorage.getItem('hopon_token')) {
-    handleLogout();
-   }
-  }
+    useEffect(() => {
+        function handleAuthFailure(event) {
+            if (event.detail.token === localStorage.getItem('hopon_token')) handleLogout();
+        }
 
-  window.addEventListener(AUTH_FAILURE_EVENT, handleAuthFailure);
-  return () => window.removeEventListener(AUTH_FAILURE_EVENT, handleAuthFailure);
- }, []);
+        window.addEventListener(AUTH_FAILURE_EVENT, handleAuthFailure);
+        return () => window.removeEventListener(AUTH_FAILURE_EVENT, handleAuthFailure);
+    }, []);
 
-if(!token){
-  return <LoginPage onLogin={handleLogin} />
-}
+    useEffect(() => {
+        if (!token || profile) return;
+        let cancelled = false;
+        getPassengerProfile(token).then(data => {
+            if (!cancelled) setProfile(data);
+        }).catch(() => {
+            // A network failure leaves trips and the profile actions independently usable.
+        });
+        return () => { cancelled = true; };
+    }, [token, profile]);
 
-if (currentPage === 'history') {
- return <TripHistoryPage key={selectedTripId} tripId={selectedTripId} token={token} onNavigate={setCurrentPage} onLogout={handleLogout} />;
-}
+    if (!token) return <LoginPage onLogin={handleLogin} />;
 
-if (currentPage === 'notifications') {
- return <NotificationsPage token={token} onNavigate={setCurrentPage} onLogout={handleLogout} />;
-}
+    const pageProps = { token, profile, onLogout: handleLogout, onNavigate: navigate };
 
-if (currentPage === 'dashboard') {
-        return (
-            <DashboardPage
-                token={token}
-                unreadCount={unreadCount}
-                onLogout={handleLogout}
-                onNavigate={setCurrentPage}
-                onOpenHistory={handleOpenHistory}
-                onOpenTrip={handleOpenTrip}
-            />
-        );
+    switch (currentPage) {
+        case 'history':
+            return <TripHistoryPage {...pageProps} key={selectedTripId} tripId={selectedTripId} />;
+        case 'notifications':
+            return <NotificationsPage {...pageProps} />;
+        case 'emergency-contact':
+            return <EmergencyContactPage token={token} onBack={() => navigate(returnPage)} />;
+        case 'change-number':
+            return <ChangeNumberPage token={token} currentNumber={profile?.phoneNumber}
+                onBack={() => navigate(returnPage)} onChanged={session => {
+                    handleLogin(session);
+                    setNotice('Phone number updated. Use your new number the next time you sign in.');
+                }} />;
+        case 'map':
+            return <TripMapPage {...pageProps} key={selectedTripId} tripId={selectedTripId} unreadCount={unreadCount} />;
+        default:
+            return <DashboardPage {...pageProps} unreadCount={unreadCount} notice={notice}
+                onOpenTrip={tripId => openTrip('map', tripId)} onOpenHistory={tripId => openTrip('history', tripId)} />;
     }
-
-if (currentPage === 'emergency-contact') {
-        return (
-            <EmergencyContactPage
-                token={token}
-                onBack={() => setCurrentPage('dashboard')}
-            />
-        );
-  }
-
-return <TripMapPage unreadCount={unreadCount} token={token} onLogout={handleLogout}  onNavigate={setCurrentPage}  tripId={selectedTripId}/>
 }
-
-export default App

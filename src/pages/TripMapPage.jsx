@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { getMyTrips, getMapData, getBoardingStatus, boardTrip, alightTrip, getEmergencyContact } from '../api/hoponApi.js';
+import { getMapData, getBoardingStatus, boardTrip, alightTrip, getEmergencyContact } from '../api/hoponApi.js';
 import { useSignalR } from '../hooks/useSignalR.js';
 import SosSheet from '../components/SosSheet.jsx';
 import BoardingPanel from '../components/BoardingPanel.jsx';
+import PassengerProfile from '../components/PassengerProfile.jsx';
 import TripMap from '../components/TripMap.jsx';
 import { getTheme, setTheme } from '../utils/theme.js';
 import { MAP_STYLES, DEFAULT_LIGHT_STYLE } from '../components/mapStyles.js';
 
-export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripIdProp, unreadCount }) {
+export default function TripMapPage({ token, profile, onLogout, onNavigate, tripId, unreadCount }) {
     const [mapData,      setMapData]      = useState(null);
     const [busPosition,  setBusPosition]  = useState(null);
+    const [recentLocations, setRecentLocations] = useState([]);
     const [tripStatus,   setTripStatus]   = useState('');
     const [loading,      setLoading]      = useState(true);
     const [error,        setError]        = useState('');
@@ -40,20 +42,10 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
     useEffect(() => {
         async function load() {
             try {
-                let resolvedTripId = tripIdProp;
-
-                if (!resolvedTripId) {
-                    const { liveTrips } = await getMyTrips(token);
-                    if (liveTrips.length === 0) {
-                        setError('No active trips found for your ticket.');
-                        return;
-                    }
-                    resolvedTripId = liveTrips[0].tripId;
-                }
-
-                const data = await getMapData(resolvedTripId, token);
+                const data = await getMapData(tripId, token);
                 setMapData(data);
                 setTripStatus(data.status);
+                setRecentLocations(data.recentLocations || []);
 
                 if (data.lastKnownLocation) {
                     setBusPosition(data.lastKnownLocation);
@@ -66,7 +58,7 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
         }
 
         load();
-    }, [token, tripIdProp]);
+    }, [token, tripId]);
 
     useEffect(() => {
         if (!mapData?.tripId) return;
@@ -113,8 +105,14 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
     async function refreshMapData() {
         try {
             const data = await getMapData(mapData.tripId, token);
-            setMapData(data);
+            setMapData(current => ({ ...data, stops: current.stops, roadCoordinates: current.roadCoordinates }));
             setTripStatus(data.status);
+            if (data.lastKnownLocation) {
+                setBusPosition(current => newerThan(data.lastKnownLocation, current) ? data.lastKnownLocation : current);
+            }
+            if (data.recentLocations?.length) {
+                setRecentLocations(current => mergeLocations(current, data.recentLocations));
+            }
         } catch (err) { setError(err.message); }
     }
 
@@ -122,11 +120,8 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
         mapData?.tripId,
         token,
         (locationData) => {
-            setBusPosition({
-                latitude:   locationData.latitude,
-                longitude:  locationData.longitude,
-                recordedAt: locationData.recordedAt
-            });
+            setBusPosition(current => newerThan(locationData, current) ? locationData : current);
+            setRecentLocations(current => mergeLocations(current, [locationData]));
         },
         (statusData) => {
             if (statusData.status === 'Completed' || statusData.status === 'Cancelled') {
@@ -182,14 +177,7 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                         {unreadCount > 0 && <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
                     </button>
                     <button onClick={toggleMapTheme} aria-label="Toggle theme" title="Toggle theme">{isDark ? '☀️' : '🌙'}</button>
-                    <button onClick={() => onNavigate('emergency-contact')} aria-label="Emergency Contact" title="Emergency Contact">
-                        <span className="tm-header__label">Emergency Contact</span>
-                        <span className="tm-header__mobile-icon" aria-hidden="true">☎</span>
-                    </button>
-                    <button className="tm-header__logout" onClick={onLogout} aria-label="Log out" title="Log out">
-                        <span className="tm-header__label">Log out</span>
-                        <span className="tm-header__mobile-icon" aria-hidden="true">⇥</span>
-                    </button>
+                    <PassengerProfile profile={profile} onNavigate={onNavigate} onLogout={onLogout} />
                 </div>
             </header>
 
@@ -197,7 +185,9 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
                 <TripMap
                     key={mapData.tripId}
                     stops={mapData.stops}
+                    roadCoordinates={mapData.roadCoordinates}
                     busPosition={busPosition}
+                    recentLocations={recentLocations}
                     routeName={mapData.routeName}
                     destinationStopName={mapData.destinationStopName}
                     destinationEstimatedArrival={mapData.destinationEstimatedArrival}
@@ -214,4 +204,13 @@ export default function TripMapPage({ token, onLogout, onNavigate, tripId: tripI
             </div>
         </div>
     );
+}
+
+function newerThan(fix, current) {
+    return !current || Date.parse(fix.recordedAt) > Date.parse(current.recordedAt);
+}
+
+function mergeLocations(current, incoming) {
+    const byTime = new Map([...current, ...incoming].map(fix => [Date.parse(fix.recordedAt), fix]));
+    return [...byTime.values()].sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt)).slice(-10);
 }

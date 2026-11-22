@@ -3,7 +3,7 @@ import { getTripHistory } from '../api/hoponApi.js';
 import { formatDateTime } from '../utils/format.js';
 import AppHeader from '../components/AppHeader.jsx';
 
-export default function TripHistoryPage({ tripId, token, onNavigate, onLogout }) {
+export default function TripHistoryPage({ tripId, token, profile, onNavigate, onLogout }) {
     const [history, setHistory] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
@@ -24,7 +24,7 @@ export default function TripHistoryPage({ tripId, token, onNavigate, onLogout })
     return (
         <div className="passenger-page">
             <AppHeader title="Trip history" onBack={() => onNavigate('dashboard')}
-                onNavigate={onNavigate} onLogout={onLogout} onNotifications={() => onNavigate('notifications')} />
+                profile={profile} onNavigate={onNavigate} onLogout={onLogout} onNotifications={() => onNavigate('notifications')} />
             <main className="page-content">
                 {loading && <p role="status">Loading trip history…</p>}
                 {error && <div role="alert"><p className="error-text">{error}</p>

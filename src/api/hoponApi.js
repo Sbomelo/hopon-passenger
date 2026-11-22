@@ -41,6 +41,14 @@ async function request(method,path, {body, token} = {}){
 
     export const verifyOtp = (phoneNumber, code) =>request('POST', '/auth/otp/verify', {body :{phoneNumber,code}});
 
+    export const getPassengerProfile = (token) => request('GET', '/auth/profile', { token });
+
+    export const requestPhoneChange = (phoneNumber, token) =>
+        request('POST', '/auth/phone-change/request', { body: { phoneNumber }, token });
+
+    export const verifyPhoneChange = (phoneNumber, code, token) =>
+        request('POST', '/auth/phone-change/verify', { body: { phoneNumber, code }, token });
+
     //Trip Data
     export const getMyTrips = (token) => request('GET', '/trips/my-trips', {token});
 

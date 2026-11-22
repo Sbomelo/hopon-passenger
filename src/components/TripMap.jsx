@@ -4,6 +4,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MAP_STYLES } from './mapStyles.js';
 import { formatTime } from '../utils/format.js';
+import { haversineKm, projectOntoRoute, toRad, updateLiveRoute } from '../utils/liveRoute.js';
 import './TripMap.css';
 
 maplibregl.setWorkerUrl(workerUrl);
@@ -16,18 +17,7 @@ const FIT_PADDING = { top: 90, bottom: 270, left: 50, right: 50 };
 
 //  Geometry helpers (all points are [lng, lat])                             
 
-const toRad = (d) => (d * Math.PI) / 180;
 const toDeg = (r) => (r * 180) / Math.PI;
-
-function haversineKm([lng1, lat1], [lng2, lat2]) {
-    const R = 6371;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(a));
-}
 
 function bearingDeg([lng1, lat1], [lng2, lat2]) {
     const p1 = toRad(lat1);
@@ -40,17 +30,8 @@ function bearingDeg([lng1, lat1], [lng2, lat2]) {
 
 const orderStops = (stops) => [...stops].sort((a, b) => a.sequenceOrder - b.sequenceOrder);
 
-function nearestVertex(coords, point) {
-    let best = 0;
-    let bestD = Infinity;
-    for (let i = 0; i < coords.length; i++) {
-        const d = haversineKm(coords[i], point);
-        if (d < bestD) {
-            bestD = d;
-            best = i;
-        }
-    }
-    return best;
+function distanceAlongRoute(cum, { segment, fraction }) {
+    return cum[segment] + (cum[segment + 1] - cum[segment]) * fraction;
 }
 
 // cum[i] = km travelled along the road up to vertex i. stopDist[i] = where stop i sits on that scale.
@@ -59,20 +40,20 @@ function buildRoute(coords, stops) {
     for (let i = 1; i < coords.length; i++) {
         cum.push(cum[i - 1] + haversineKm(coords[i - 1], coords[i]));
     }
-    const stopDist = stops.map((s) => cum[nearestVertex(coords, [s.longitude, s.latitude])]);
+    const stopDist = stops.map(({ longitude, latitude }) => distanceAlongRoute(cum, projectOntoRoute(coords, [longitude, latitude])));
     return { coords, cum, total: cum[cum.length - 1], stopDist };
 }
 
 // Where is the bus along the route, which stops has it passed, and which is next?
-function locateBus(route, stops, busPosition) {
-    const here = [busPosition.longitude, busPosition.latitude];
-    const km = route.cum[nearestVertex(route.coords, here)];
+function locateBus(route, stops, liveRoute) {
+    const km = distanceAlongRoute(route.cum, liveRoute.position);
     const nextIdx = route.stopDist.findIndex((d) => d > km + 0.5);
     const passedCount = nextIdx === -1 ? stops.length : nextIdx;
 
     return {
         progress: route.total > 0 ? km / route.total : 0,
-        remainingKm: Math.max(0, Math.round(route.total - km)),
+        traveledKm: km,
+        remainingKm: liveRoute.detour ? null : Math.max(0, Math.round(route.total - km)),
         passedCount,
         nextStop: stops[Math.min(passedCount, stops.length - 1)].name,
     };
@@ -86,7 +67,10 @@ async function fetchRoadRoute(stops, signal) {
 
     try {
         const cached = localStorage.getItem(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) {
+            const coords = JSON.parse(cached);
+            if (Array.isArray(coords) && coords.length >= 2) return coords;
+        }
     } catch {
         // storage blocked or corrupt entry: carry on and fetch
     }
@@ -97,7 +81,7 @@ async function fetchRoadRoute(stops, signal) {
         if (!res.ok) throw new Error(`OSRM ${res.status}`);
         const json = await res.json();
         const coords = json.routes?.[0]?.geometry?.coordinates;
-        if (!coords?.length) throw new Error('OSRM returned no geometry');
+        if (!Array.isArray(coords) || coords.length < 2) throw new Error('OSRM returned no geometry');
 
         try {
             localStorage.setItem(cacheKey, JSON.stringify(coords));
@@ -129,13 +113,19 @@ const gradient = (colors, p) => [
     colors.todo,
 ];
 
-function addRouteLayers(map, route, colors, progress) {
-    if (map.getSource('route')) return;
+function drawRoute(map, coordinates, colors, progress) {
+    const data = { type: 'Feature', geometry: { type: 'LineString', coordinates } };
+    const source = map.getSource('route');
+    if (source) {
+        source.setData(data);
+        map.setPaintProperty('route-line', 'line-gradient', gradient(colors, progress));
+        return;
+    }
 
     map.addSource('route', {
         type: 'geojson',
         lineMetrics: true,
-        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: route.coords } },
+        data,
     });
 
     const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
@@ -169,19 +159,20 @@ function addRouteLayers(map, route, colors, progress) {
     );
 }
 
-function fitToStops(map, stops, animate) {
+function fitToStops(map, stops, animate, routeCoordinates = []) {
     if (stops.length === 0) return;
     const first = [stops[0].longitude, stops[0].latitude];
     const bounds = stops.reduce(
         (b, s) => b.extend([s.longitude, s.latitude]),
         new maplibregl.LngLatBounds(first, first),
     );
+    routeCoordinates.forEach(coordinate => bounds.extend(coordinate));
     map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 12, duration: animate ? 1000 : 0 });
 }
 
 //Component
 
-export default function TripMap({ stops, busPosition, routeName, status, styleKey, onStyleChange, destinationStopName, destinationEstimatedArrival, children }) {
+export default function TripMap({ stops, roadCoordinates, busPosition, recentLocations, routeName, status, styleKey, onStyleChange, destinationStopName, destinationEstimatedArrival, children }) {
     // Refs: values the effects and the animation loop share without causing re-renders.
     const wrapRef = useRef(null);
     const mapElRef = useRef(null);
@@ -197,7 +188,8 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
     const headingTargetRef = useRef(0);
     const followRef = useRef(false);
 
-    const [route, setRoute] = useState(null);
+    const [plannedCoords, setPlannedCoords] = useState(null);
+    const [tracking, setTracking] = useState(null);
     const [follow, setFollow] = useState(false);
 
     /* 1. Create the map once and run the animation loop */
@@ -337,30 +329,41 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
     /* 5. Fetch the road geometry between the stops */
     useEffect(() => {
         const ordered = orderStops(stops);
-        if (ordered.length < 2) return;
+        if (roadCoordinates?.length >= 2 || ordered.length < 2) return;
 
         const ctrl = new AbortController();
         fetchRoadRoute(ordered, ctrl.signal)
-            .then((coords) => setRoute(buildRoute(coords, ordered)))
+            .then(coords => { if (!ctrl.signal.aborted) setPlannedCoords(coords); })
             .catch((err) => {
                 if (err.name !== 'AbortError') console.error(err);
             });
 
         return () => ctrl.abort();
-    }, [stops]);
+    }, [stops, roadCoordinates]);
+
+    const baseCoordinates = roadCoordinates?.length >= 2 ? roadCoordinates : plannedCoords;
+    if (baseCoordinates && (tracking?.baseCoordinates !== baseCoordinates || tracking?.fixes !== recentLocations)) {
+        const previous = tracking?.baseCoordinates === baseCoordinates ? tracking : null;
+        const route = updateLiveRoute(previous?.route, baseCoordinates, recentLocations);
+        const metrics = route.path === previous?.route.path ? previous.metrics : buildRoute(route.path, orderStops(stops));
+        setTracking({ baseCoordinates, fixes: recentLocations, route, metrics });
+    }
+
+    const liveRoute = tracking?.route;
+    const drawnPath = liveRoute?.drawnPath ?? baseCoordinates;
 
     /* 6. Draw the route, and re-draw it after every basemap switch (setStyle wipes custom layers) */
     useEffect(() => {
         const map = mapRef.current;
-        if (!map || !route) return;
+        if (!map || !drawnPath) return;
 
         const draw = () =>
-            addRouteLayers(map, route, readColors(wrapRef.current), progressRef.current);
+            drawRoute(map, drawnPath, readColors(wrapRef.current), progressRef.current);
 
         if (styleReadyRef.current) draw();
         map.on('style.load', draw);
         return () => map.off('style.load', draw);
-    }, [route]);
+    }, [drawnPath]);
 
     /* 7. New GPS fix -> glide the bus to it */
     useEffect(() => {
@@ -382,27 +385,30 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
 
     /* Progress along the route is derived from the latest GPS fix, a plain calculation in render */
     const orderedStops = orderStops(stops);
-    const trip = route && busPosition ? locateBus(route, orderedStops, busPosition) : null;
+    const trip = liveRoute?.position && orderedStops.length ? locateBus(tracking.metrics, orderedStops, liveRoute) : null;
     const progress = trip?.progress ?? 0;
+    const lineProgress = liveRoute?.detour && trip
+        ? trip.traveledKm / (trip.traveledKm + liveRoute.detour.distance)
+        : progress;
     const passedCount = trip?.passedCount ?? 0;
 
     /* 8. Recolour the travelled part of the route + dim passed stops */
     useEffect(() => {
-        progressRef.current = progress;
-        if (!route) return;
+        progressRef.current = lineProgress;
+        if (!drawnPath) return;
 
         const map = mapRef.current;
         if (styleReadyRef.current && map?.getLayer('route-line')) {
             map.setPaintProperty(
                 'route-line',
                 'line-gradient',
-                gradient(readColors(wrapRef.current), progress),
+                gradient(readColors(wrapRef.current), lineProgress),
             );
         }
         stopMarkersRef.current.forEach((m, i) =>
             m.getElement().classList.toggle('is-passed', i < passedCount),
         );
-    }, [progress, passedCount, route]);
+    }, [lineProgress, passedCount, drawnPath]);
 
     const isLive = status === 'Scheduled' || status === 'InProgress' || status === 'Delayed';
     const lastUpdate = busPosition
@@ -449,7 +455,7 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
                     </div>
                     <div>
                         <small>Remaining</small>
-                        <strong>{trip ? `${trip.remainingKm} km` : '—'}</strong>
+                        <strong>{trip?.remainingKm != null ? `${trip.remainingKm} km` : '—'}</strong>
                     </div>
                 </div>
 
@@ -457,7 +463,7 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
                     Your stop: {destinationStopName || '—'} · ETA {destinationEstimatedArrival ? `${formatTime(destinationEstimatedArrival)} SAST` : '—'}
                 </div>
                 <div className="tm-card__foot tm-card__gps">
-                    <span>{lastUpdate ? `Last GPS update ${lastUpdate}` : 'Waiting for bus location…'}</span>
+                    <span>{liveRoute?.detour && 'Detour · '}{lastUpdate ? `Last GPS update ${lastUpdate}` : 'Waiting for bus location…'}</span>
                     <button className="tm-boarding-trigger" popoverTarget="tm-boarding">Boarding</button>
                 </div>
                 <div id="tm-boarding" className="tm-boarding" popover="auto" role="region" aria-label="Boarding details">
@@ -471,7 +477,7 @@ export default function TripMap({ stops, busPosition, routeName, status, styleKe
                         className="tm-btn"
                         onClick={() => {
                             setFollow(false);
-                            fitToStops(mapRef.current, orderedStops, true);
+                            fitToStops(mapRef.current, orderedStops, true, drawnPath ?? []);
                         }}
                     >
                         Whole route

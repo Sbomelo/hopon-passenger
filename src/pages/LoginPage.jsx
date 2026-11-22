@@ -34,7 +34,7 @@ export default function LoginPage({onLogin}){
 
         try{
             const data = await verifyOtp(phoneNumber, code);
-            onLogin(data.token)
+            onLogin(data);
         }catch(err){
             setError(err.message);
         }finally{
@@ -90,7 +90,7 @@ export default function LoginPage({onLogin}){
                             {error && <p className="error-text" role="alert">{error}</p>}
                             <button type="submit" className="hopon-btn" disabled={loading}>{loading ? 'Verifying…' : 'Verify code'}</button>
                             
-                            <button type="button"  onClick={() => { setStep(1); setError(''); setDevCode(''); setCode(''); }} style={{background: 'none', border: 'none', color: 'var(--color-interactive)', cursor: 'pointer', display: 'block',  margin: '0.9rem auto 0', fontSize: '0.88rem'}}>
+                            <button type="button" disabled={loading} onClick={() => { setStep(1); setError(''); setDevCode(''); setCode(''); }} style={{background: 'none', border: 'none', color: 'var(--color-interactive)', cursor: 'pointer', display: 'block',  margin: '0.9rem auto 0', fontSize: '0.88rem'}}>
                                 Change number
                             </button>
                         </form>
